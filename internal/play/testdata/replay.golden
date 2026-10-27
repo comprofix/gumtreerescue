@@ -1,5 +1,5 @@
-level 3  score 4520  lives 3  over false
-waiting 1  rescued 7  misses 0  sheet 33816
+level 3  score 4410  lives 3  over false
+waiting 1  rescued 6  misses 0  sheet 38316
 waiting 9: spot 9 joey false
 koala 0: id 0 state 6 x 96256 h 0 target 3 missed false bonked false slipped false joey false baby false
 koala 1: id 1 state 6 x 96256 h 0 target 3 missed false bonked false slipped false joey false baby false
@@ -7,6 +7,6 @@ koala 2: id 2 state 6 x 96256 h 0 target 3 missed false bonked false slipped fal
 koala 3: id 3 state 6 x 96256 h 0 target 3 missed false bonked false slipped false joey false baby false
 koala 4: id 4 state 6 x 96256 h 0 target 3 missed false bonked false slipped false joey false baby false
 koala 5: id 5 state 6 x 96256 h 0 target 3 missed false bonked false slipped false joey false baby false
-koala 6: id 6 state 6 x 96256 h 0 target 3 missed false bonked false slipped false joey false baby false
-koala 7: id 7 state 2 x 35953 h 8059 target 1 missed false bonked false slipped false joey false baby false
-koala 8: id 8 state 7 x 11264 h 58187 target 0 missed false bonked false slipped false joey false baby false
+koala 6: id 6 state 2 x 91022 h 29221 target 3 missed false bonked false slipped false joey false baby false
+koala 7: id 7 state 0 x 34816 h 64000 target 0 missed false bonked false slipped false joey false baby false
+koala 8: id 8 state 7 x 27837 h 57668 target 0 missed false bonked false slipped false joey false baby false

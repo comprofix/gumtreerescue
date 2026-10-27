@@ -222,11 +222,18 @@ func TestTreeHit(t *testing.T) {
 				return false
 			})
 			k := w.Koalas[0]
+			if k.State != Thumped || k.X != grabX(k.H) || k.H <= 0 {
+				t.Fatalf("seed %d zone %d: hit the tree, then %v at %d,%d", seed, z, k.State, k.X, k.H)
+			}
+			for range config.ThumpTicks {
+				w.Update(Input{})
+			}
+			k = w.Koalas[0]
 			switch hit.Kind {
 			case Grabbed:
 				grabs++
-				if k.State != Climbing || k.X != config.TrunkX*config.SubPx || k.H <= 0 || !k.Joey {
-					t.Fatalf("seed %d zone %d: grabbed, then %v at %d,%d joey %v", seed, z, k.State, k.X, k.H, k.Joey)
+				if k.State != Climbing || !k.Joey {
+					t.Fatalf("seed %d zone %d: grabbed, then %v joey %v", seed, z, k.State, k.Joey)
 				}
 			case Slipped:
 				slips++
@@ -639,15 +646,19 @@ func TestSpotsKept(t *testing.T) {
 
 // TestNoJumps plays games with a careless player, who bounces koalas every
 // way and misses some, and checks no koala ever jumps from place to place:
-// in the tree and on the ground each moves at most a step a tick, each
-// sets off from its spot, and each comes to a stop in its spot (DESIGN §5).
+// in the tree and on the ground each moves at most a bound's step a tick,
+// each sets off from its spot, and each comes to a stop in its spot
+// (DESIGN §5).
 func TestNoJumps(t *testing.T) {
+	// A bound goes twice ClimbSubPx a tick; across and up together, a
+	// slanting one goes up to about 2.9 times it.
+	const step = 3 * config.ClimbSubPx
 	type id struct {
 		n    int
 		baby bool
 	}
 	slow := func(s State) bool {
-		return s == Walking || s == Wobbling || s == Dazed || s == Crawling || s == Climbing || s == Searching || s == Lost || s == Finding
+		return s == Walking || s == Wobbling || s == Dazed || s == Crawling || s == Climbing || s == Searching || s == Lost || s == Finding || s == Thumped
 	}
 	near := func(k Koala, s Waiting) bool {
 		x, h := SpotAt(config.Spots[s.Spot])
@@ -677,7 +688,7 @@ func TestNoJumps(t *testing.T) {
 				p, was := prev[i]
 				switch {
 				case was && slow(p.State) && slow(k.State):
-					if abs(k.X-p.X)+abs(k.H-p.H) > 2*config.ClimbSubPx {
+					if abs(k.X-p.X)+abs(k.H-p.H) > step {
 						t.Fatalf("seed %d tick %d: koala %v jumped from %d,%d (%v) to %d,%d (%v)", seed, tick, i, p.X, p.H, p.State, k.X, k.H, k.State)
 					}
 				case !was && !k.Baby:
@@ -697,6 +708,76 @@ func TestNoJumps(t *testing.T) {
 			prev, seats = now, map[int]Waiting{}
 			for _, s := range w.Tree {
 				seats[s.ID] = s
+			}
+		}
+	}
+}
+
+// TestClimbBounds walks a koala from the foot of the tree, on its left
+// side, out to the branch: it shimmies round the back of the trunk to the
+// right side and climbs it, both in bounds, moving then still, goes out
+// along the branch without stopping, and gets there when pathLeft said
+// (DESIGN §5).
+func TestClimbBounds(t *testing.T) {
+	w := newWorld(t)
+	k := walker(Waiting{Spot: 7}, w.Row.Drops[0])
+	left := k.pathLeft()
+	moving, still, behind := 0, 0, false
+	for tick := 1; ; tick++ {
+		x, h, leg := k.X, k.H, k.leg
+		done := k.climb()
+		behind = behind || k.Behind()
+		switch {
+		case k.X != x || k.H != h:
+			moving++
+		case done:
+		case !steep(k.path[leg], k.path[leg+1]) && leg != k.round[0] && leg != k.round[1]:
+			t.Fatalf("tick %d: held still at %d,%d, off the trunk", tick, k.X, k.H)
+		default:
+			still++
+		}
+		if done {
+			if tick != left {
+				t.Fatalf("got there after %d ticks, pathLeft said %d", tick, left)
+			}
+			break
+		}
+	}
+	if moving < left/2 || still < left/5 {
+		t.Errorf("moved %d ticks and held still %d of %d: want bounds", moving, still, left)
+	}
+	if !behind {
+		t.Error("never went round the back of the trunk")
+	}
+}
+
+// TestClimbersPassNoSitters checks that no route between spots passes over
+// a koala holding the trunk's left side: climbers keep to the right side
+// and go round the back (DESIGN §5).
+func TestClimbersPassNoSitters(t *testing.T) {
+	const wide, tall = 10 * config.SubPx, 24 * config.SubPx // about a koala holding on
+	const trunkTop = 150                                    // where the trunk forks
+
+	for i, a := range config.Spots {
+		for j, b := range config.Spots {
+			path, round := route(spotWay(a), spotWay(b))
+			for l := 0; l+1 < len(path); l++ {
+				if l == round[0] || l == round[1] {
+					continue
+				}
+				p, q := path[l], path[l+1]
+				for s, sit := range config.Spots {
+					if s == i || s == j || config.SideOf(sit.X, sit.Y) != config.Left || sit.Y < trunkTop {
+						continue
+					}
+					x, h := SpotAt(sit)
+					for f := 0; f <= 10; f++ {
+						px, ph := p.X+(q.X-p.X)*f/10, p.H+(q.H-p.H)*f/10
+						if abs(px-x) < wide && abs(ph-h) < tall {
+							t.Fatalf("spot %d to %d passes over spot %d at %d,%d", i, j, s, px, ph)
+						}
+					}
+				}
 			}
 		}
 	}

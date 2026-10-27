@@ -62,36 +62,117 @@ const (
 )
 
 // Spot is a place in the tree, as a koala's feet, in field pixels from the
-// top left.
-type Spot struct{ X, Y int }
+// top left, and Way, the bends of its limb on the way in to the trunk.
+type Spot struct {
+	X, Y int
+	Way  []Spot
+}
 
-// Spots are where waiting koalas sit in the tree, one each: on branches, in
-// the forks, holding the trunk and at its foot (DESIGN §5). A level's
-// koalas start in them in order, the first to drop in the first.
+// limb1, limb0 and limb3 are the bends along the tree's limbs, along their
+// tops: the right limb up into the canopy, the left one, and the bough to
+// the left.
+var (
+	limb1 = []Spot{{X: 98, Y: 81}, {X: 68, Y: 113}, {X: 46, Y: 152}}
+	limb0 = []Spot{{X: 20, Y: 110}, {X: 28, Y: 150}}
+	limb3 = []Spot{{X: 26, Y: 122}}
+)
+
+// Boughs are short, level boughs off the right limb, out past the leaves,
+// as the lines along their middles from the limb out (DESIGN §3): drawn
+// over the canopy, so the koalas up there sit on wood, not leaves.
+var Boughs = [][]Spot{
+	{{X: 78, Y: 104}, {X: 100, Y: 106}, {X: 124, Y: 106}},
+	{{X: 110, Y: 78}, {X: 132, Y: 72}, {X: 150, Y: 73}},
+}
+
+// Spots are where waiting koalas sit in the tree, one each: on its limbs
+// and boughs, in the forks, holding the left sides of the middle limb and
+// the trunk, clear of the climbers on their right, and at its foot (DESIGN
+// §5). A level's koalas start in them in order, the first to drop in the
+// first.
 var Spots = [KoalaLevel]Spot{
-	{70, 112}, {12, 104}, {31, 128}, {100, 81}, {36, 190},
-	{56, 236}, {20, 270}, {16, 331}, {122, 60}, {4, 68},
+	{X: 70, Y: 112, Way: limb1[2:]},
+	{X: 12, Y: 104, Way: limb3},
+	{X: 30, Y: 97},
+	{X: 114, Y: 104, Way: append([]Spot{{X: 78, Y: 102}}, limb1[1:]...)},
+	{X: 17, Y: 190},
+	{X: 15, Y: 236},
+	{X: 14, Y: 280},
+	{X: 16, Y: 331},
+	{X: 134, Y: 69, Way: append([]Spot{{X: 110, Y: 74}}, limb1...)},
+	{X: 4, Y: 68, Way: limb0},
 }
 
 // JoeyPerches are where a lost joey sits while it looks for its mother
 // (DESIGN §6): more than a level ever has joeys.
-var JoeyPerches = [3]Spot{{52, 96}, {86, 66}, {28, 150}}
+var JoeyPerches = [3]Spot{{X: 84, Y: 96, Way: limb1[1:]}, {X: 44, Y: 56}, {X: 28, Y: 150}}
 
-// How koalas get about the tree (DESIGN §5): up and down the trunk at
-// ClimbX, and out along a branch that rises BranchRise from the trunk to
-// its tip, the drop point.
+// Spine is the tree's middle, from the foot of the trunk up it and on up
+// the middle limb: the branches grow from it, and the ways in from left of
+// it come round the back of the trunk.
+var Spine = []Spot{{X: 42, Y: 334}, {X: 40, Y: 150}, {X: 35, Y: 128}, {X: 40, Y: 80}, {X: 46, Y: 40}}
+
+// SpineX is where the Spine is across at height y.
+func SpineX(y int) int { return along(Spine, y) }
+
+// The trunk's sides: a koala holds on to its left side facing right, and to
+// its right side facing left.
 const (
-	ClimbX     = 44
-	BranchRise = 34
+	Left = iota
+	Right
 )
+
+// ClimbLine is where a koala's feet are as it holds on to the trunk's right
+// side, side on, and climbs it, on up the middle limb's right (DESIGN §5).
+// Every way in the tree meets it, those from the left side round the back.
+var ClimbLine = []Spot{{X: 66, Y: 334}, {X: 67, Y: 320}, {X: 63, Y: 286}, {X: 59, Y: 236}, {X: 55, Y: 186}, {X: 49, Y: 150}, {X: 44, Y: 130}, {X: 48, Y: 80}, {X: 53, Y: 40}}
+
+// ClimbX is where a koala climbing the trunk is across at height y. A
+// koala bounced into the tree grabs it there (DESIGN §5).
+func ClimbX(y int) int { return along(ClimbLine, y) }
+
+// SideOf is the side of the trunk a way in from x, y comes to.
+func SideOf(x, y int) int {
+	if x < SpineX(y) {
+		return Left
+	}
+	return Right
+}
+
+// along is where a line going up through the spots, from the bottom, is
+// across at height y; past either end it carries straight on up or down.
+func along(line []Spot, y int) int {
+	for i := 1; i < len(line); i++ {
+		a, b := line[i-1], line[i]
+		if y >= b.Y {
+			return a.X + (b.X-a.X)*(a.Y-y)/(a.Y-b.Y)
+		}
+	}
+	return line[len(line)-1].X
+}
+
+// BranchRise is how far a branch rises from the Spine to its tip, the drop
+// point.
+const BranchRise = 34
+
+// Branch is drop point d's branch, as the line along its middle that
+// koalas walk and the art follows: from its tip, sagging a little, to
+// where it meets the trunk's right side. The art carries it on into the
+// Spine.
+func Branch(d Drop) []Spot {
+	x, y := Station0X+d.Station*StepPx, SheetY-d.Height
+	return []Spot{{X: x, Y: y}, {X: x - 20, Y: y + 1}, {X: x - 52, Y: y + 10}, {X: ClimbX(y + BranchRise), Y: y + BranchRise}}
+}
 
 // What happens to a missed koala, a koala bounced into the tree and a lost
 // joey (DESIGN §5, §6).
 const (
 	DazedTicks   = 90            // sitting dazed on the ground
 	CrawlSubPx   = 3 * SubPx / 4 // crawling back to the tree, per tick
-	ClimbSubPx   = 3 * SubPx / 4 // climbing about the tree, per tick
+	ClimbSubPx   = 3 * SubPx / 4 // climbing about the tree, per tick on average
+	HopTicks     = 2 * TPS / 5   // a koala bounds up and down the trunk: twice ClimbSubPx a tick for half of this, then still for half
 	SlipChance   = 50            // in a hundred: a koala bounced into the tree slips, or grabs on
+	ThumpTicks   = TPS / 5       // a koala bounced into the tree is squashed against it this long
 	JoeyTumblePx = 10            // a lost joey lands this far right of its mother
 	JoeySearch   = 2 * TPS       // a lost joey looks for its mother at least this long,
 	JoeySearchUp = 6 * TPS       // and up to this much longer, at random

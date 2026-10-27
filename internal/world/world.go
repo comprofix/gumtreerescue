@@ -13,6 +13,7 @@ package world
 import (
 	"math"
 	"math/rand/v2"
+	"slices"
 
 	"github.com/comprofix/gumtreerescue/internal/config"
 	"github.com/comprofix/gumtreerescue/internal/session"
@@ -33,6 +34,7 @@ const (
 	Searching              // a lost joey looking for its mother
 	Lost                   // a lost joey waiting for its mother to come back to the tree
 	Finding                // a lost joey climbing to its mother
+	Thumped                // bounced into the trunk, squashed against it
 )
 
 // Koala is one koala out of its spot in the tree, or a lost joey.
@@ -52,8 +54,8 @@ type Koala struct {
 	// Slipped is set once it has slipped from the tree; it falls to the
 	// ground with no life lost (DESIGN §5).
 	Slipped bool
-	// Timer counts down while it wobbles, is dazed, is dazed in the tray,
-	// or as a lost joey, searches.
+	// Timer counts down while it wobbles, thumps against the trunk, is
+	// dazed, is dazed in the tray, or as a lost joey, searches.
 	Timer int
 	// Joey is set for a mother with a joey on her back: her bounces and
 	// rescue score double (DESIGN §6).
@@ -66,12 +68,14 @@ type Koala struct {
 	// lost joey into config.JoeyPerches.
 	Spot int
 
-	x0, x1 int      // an arc's start and end, across
-	h0     int      // a fall's starting height
-	t      int      // ticks into the current fall, arc or leg of its path
-	path   [4]point // where it walks or climbs: from path[0] to path[3]
-	leg    int      // the leg of path it is on, from path[leg]
-	gone   bool     // back in its spot, or on its mother's back
+	x0, x1 int       // an arc's start and end, across
+	h0     int       // a fall's starting height
+	t      int       // ticks into the current fall, arc or leg of its path
+	path   [24]point // where it walks or climbs: path[0] to path[n-1]
+	n      int
+	leg    int    // the leg of path it is on, from path[leg]
+	round  [2]int // the legs of path round the back of the trunk, or -1
+	gone   bool   // back in its spot, or on its mother's back
 }
 
 // point is a place on the field, in fixed point.
@@ -355,61 +359,192 @@ func newKoala(d config.Drop) Koala {
 	return Koala{State: Wobbling, X: StationX(d.Station), H: h, h0: h, Target: d.Station, Timer: config.WobbleTicks}
 }
 
-// walker is the waiting koala s setting off for drop point d: across to
-// the trunk, along it to the branch and out along the branch to its tip
+// walker is the waiting koala s setting off for drop point d: in along its
+// limb, along the trunk to the branch and out along the branch to its tip
 // (DESIGN §5).
 func walker(s Waiting, d config.Drop) Koala {
 	k := newKoala(d)
 	k.ID, k.Joey = s.ID, s.Joey
-	tip := point{k.X, k.H}
-	x, h := SpotAt(config.Spots[s.Spot])
-	k.setPath(point{x, h}, tip.H-config.BranchRise*config.SubPx, tip)
+	k.setPath(route(spotWay(config.Spots[s.Spot]), wayIn(config.Branch(d)...)))
 	if k.pathLeft() > 0 {
 		k.State = Walking
-	} else {
-		k.X, k.H = tip.X, tip.H
 	}
 	return k
 }
 
-// setPath starts k on a path from where it is: across to the trunk, up or
-// down it to height via, and out to the end. Already at the end, it stays.
-func (k *Koala) setPath(from point, via int, end point) {
-	trunk := config.ClimbX * config.SubPx
-	k.path = [4]point{from, {trunk, from.H}, {trunk, via}, end}
-	if from == end {
-		k.path = [4]point{end, end, end, end}
-	}
-	k.leg, k.t = 0, 0
-	k.X, k.H = from.X, from.H
+// way is a way in from a place in the tree to the trunk, in fixed point:
+// the place and the bends of its limb, and the side of the trunk it comes
+// to.
+type way struct {
+	pts  []point
+	side int
 }
 
-// climb moves k a tick along its path, and reports whether it has come to
-// the end.
+// wayIn is the way in from the first of the spots, through the rest.
+func wayIn(at ...config.Spot) way {
+	pts := make([]point, 0, len(at))
+	for _, s := range at {
+		x, h := SpotAt(s)
+		pts = append(pts, point{x, h})
+	}
+	last := at[len(at)-1]
+	return way{pts, config.SideOf(last.X, last.Y)}
+}
+
+// spotWay is the way in from spot s, along its limb.
+func spotWay(s config.Spot) way {
+	return wayIn(append([]config.Spot{{X: s.X, Y: s.Y}}, s.Way...)...)
+}
+
+// fromHere is the way in from where k is: straight across to the trunk.
+func fromHere(k *Koala) way {
+	return way{[]point{{k.X, k.H}}, config.SideOf(k.X/config.SubPx, config.SheetY-k.H/config.SubPx)}
+}
+
+// route is the path from the start of way a to the start of way b, and
+// which of its legs go round the back of the trunk, or -1: in along a,
+// round the back if it comes to the trunk's left side, up or down the
+// right side, round the back again if b comes to the left side, and out
+// along b (DESIGN §5). So climbers never pass the koalas holding the left
+// side. From a place to itself, it is the place.
+func route(a, b way) ([]point, [2]int) {
+	round := [2]int{-1, -1}
+	if a.pts[0] == b.pts[0] {
+		return a.pts[:1], round
+	}
+	out := append([]point(nil), a.pts...)
+	if a.side == config.Left {
+		round[0] = len(out) - 1
+	}
+	from, to := a.pts[len(a.pts)-1].H, b.pts[len(b.pts)-1].H
+	if !nearTrunk(a) {
+		out = append(out, onTrunk(from))
+	}
+	line := make([]point, 0, len(config.ClimbLine))
+	for _, s := range config.ClimbLine {
+		x, h := SpotAt(s)
+		if h > min(from, to) && h < max(from, to) {
+			line = append(line, point{x, h})
+		}
+	}
+	if from > to {
+		slices.Reverse(line)
+	}
+	out = append(out, line...)
+	if !nearTrunk(b) {
+		out = append(out, onTrunk(to))
+	}
+	if b.side == config.Left {
+		round[1] = len(out) - 1
+	}
+	for i := len(b.pts) - 1; i >= 0; i-- {
+		out = append(out, b.pts[i])
+	}
+	return out, round
+}
+
+// nearTrunk reports whether way w comes in on the trunk's right side within
+// a short step of where koalas climb it, so goes straight on up or down it
+// rather than stepping across.
+func nearTrunk(w way) bool {
+	last := w.pts[len(w.pts)-1]
+	j := onTrunk(last.H)
+	return w.side == config.Right && abs(j.X-last.X) <= trunkStep
+}
+
+// trunkStep is the step across to the trunk short enough to leave out.
+const trunkStep = 4 * config.SubPx
+
+// onTrunk is where a koala climbing the trunk at height h is, in fixed
+// point.
+func onTrunk(h int) point {
+	return point{config.ClimbX(config.SheetY-h/config.SubPx) * config.SubPx, h}
+}
+
+// setPath starts k on a path, from its first point, with the legs round the
+// back of the trunk, or -1.
+func (k *Koala) setPath(path []point, round [2]int) {
+	k.n = copy(k.path[:], path)
+	k.leg, k.t, k.round = 0, 0, round
+	k.X, k.H = path[0].X, path[0].H
+}
+
+// climb moves k a tick along its path, in bounds up and down the trunk and
+// steep limbs and as it shimmies round the back of the trunk, steadily
+// along the rest, and reports whether it has come to the end.
 func (k *Koala) climb() bool {
 	k.t++
-	for ; k.leg+1 < len(k.path); k.leg++ {
+	for ; k.leg+1 < k.n; k.leg++ {
 		a, b := k.path[k.leg], k.path[k.leg+1]
 		n := legTicks(a, b)
 		if k.t < n {
-			k.X, k.H = a.X+(b.X-a.X)*k.t/n, a.H+(b.H-a.H)*k.t/n
+			s := k.t
+			if steep(a, b) || k.leg == k.round[0] || k.leg == k.round[1] {
+				s = hopped(k.t, n)
+			}
+			k.X, k.H = a.X+(b.X-a.X)*s/n, a.H+(b.H-a.H)*s/n
 			return false
 		}
 		k.t -= n
 	}
-	end := k.path[len(k.path)-1]
+	end := k.path[k.n-1]
 	k.X, k.H = end.X, end.H
 	return true
+}
+
+// steep reports whether a leg from a to b goes up or down more than twice
+// as far as across, as on the trunk, where a koala bounds (DESIGN §5).
+func steep(a, b point) bool { return abs(b.H-a.H) > 2*abs(b.X-a.X) }
+
+// hopped is how far t ticks along a leg of n ticks a koala has got, in
+// ticks at the steady pace: it bounds, going twice as fast for the first
+// half of each config.HopTicks and holding still for the second, so it
+// still ends the leg after n (DESIGN §5).
+func hopped(t, n int) int {
+	h := config.HopTicks
+	return min(t/h*h+min(2*(t%h), h), n)
+}
+
+// Hop is how far k is into the bound it is making up or down the trunk or
+// a steep limb, or round the back of the trunk, from 0 to config.HopTicks:
+// it moves for the first half and holds still for the second.
+func (k *Koala) Hop() int { return k.t % config.HopTicks }
+
+// Behind reports whether k is going round the back of the trunk, from one
+// side to the other, out of sight.
+func (k *Koala) Behind() bool {
+	return (k.State == Walking || k.State == Climbing || k.State == Finding) && (k.leg == k.round[0] || k.leg == k.round[1])
 }
 
 // pathLeft is how many ticks k has left on its path.
 func (k *Koala) pathLeft() int {
 	left := -k.t
-	for i := k.leg; i+1 < len(k.path); i++ {
+	for i := k.leg; i+1 < k.n; i++ {
 		left += legTicks(k.path[i], k.path[i+1])
 	}
 	return max(left, 0)
 }
+
+// Heading is which way k is going, across and up, in fixed point: along
+// the leg of its path it is on, or across an arc. It is 0, 0 when k is
+// going nowhere.
+func (k *Koala) Heading() (dx, dh int) {
+	switch k.State {
+	case Arcing:
+		return k.x1 - k.x0, 0
+	case Walking, Climbing, Finding:
+		for i := k.leg; i+1 < k.n; i++ {
+			if a, b := k.path[i], k.path[i+1]; a != b {
+				return b.X - a.X, b.H - a.H
+			}
+		}
+	}
+	return 0, 0
+}
+
+// Since is how many ticks k is into its current fall or arc, or the leg of
+// its path.
+func (k *Koala) Since() int { return k.t }
 
 // legTicks is how many ticks a leg from a to b takes at config.ClimbSubPx
 // a tick: the fewest that cover it, worked out in whole numbers so every
@@ -495,10 +630,14 @@ func (w *World) step(k *Koala) {
 			k.State = Crawling
 		}
 	case Crawling:
-		if k.X -= config.CrawlSubPx; k.X <= config.TrunkX*config.SubPx {
-			k.X = config.TrunkX * config.SubPx
-			w.climbBack(k)
+		// To the foot of the trunk's right side, then up the tree from
+		// there; one that slipped is already at it.
+		foot := config.ClimbX(config.GroundY) * config.SubPx
+		if k.X <= foot {
+			w.climbBack(k, fromHere(k))
+			break
 		}
+		k.X = max(k.X-config.CrawlSubPx, foot)
 	case Climbing:
 		if k.climb() {
 			w.settle(k)
@@ -514,23 +653,31 @@ func (w *World) step(k *Koala) {
 		if k.climb() {
 			w.reunite(k)
 		}
+	case Thumped:
+		if k.Timer--; k.Timer > 0 {
+			break
+		}
+		if k.Slipped {
+			k.State, k.h0, k.t = Falling, k.H, 0
+			break
+		}
+		w.climbBack(k, fromHere(k))
 	case InTray:
 		k.Timer = max(k.Timer-1, 0)
 	}
 }
 
-// climbBack starts k up the tree from where it is: a koala to a free spot,
-// a lost joey to a free perch, the seeded RNG picking which (DESIGN §5,
-// §6).
-func (w *World) climbBack(k *Koala) {
+// climbBack starts k up the tree in along way from: a koala to a free
+// spot, a lost joey to a free perch, the seeded RNG picking which (DESIGN
+// §5, §6).
+func (w *World) climbBack(k *Koala, from way) {
 	k.Spot = w.freeSpot(k.Baby)
 	spot := config.Spots[:]
 	if k.Baby {
 		spot = config.JoeyPerches[:]
 	}
-	x, h := SpotAt(spot[k.Spot])
 	k.State = Climbing
-	k.setPath(point{k.X, k.H}, h, point{x, h})
+	k.setPath(route(from, spotWay(spot[k.Spot])))
 }
 
 // freeSpot picks a spot no koala sits in or is climbing to, or for a lost
@@ -581,9 +728,9 @@ func (w *World) settle(k *Koala) {
 func (w *World) seek(k *Koala) {
 	for _, s := range w.Tree {
 		if s.ID == k.ID {
-			x, h := SpotAt(config.Spots[s.Spot])
 			k.State = Finding
-			k.setPath(point{k.X, k.H}, h, point{x, h})
+			k.setPath(route(spotWay(config.JoeyPerches[k.Spot]), spotWay(config.Spots[s.Spot])))
+			k.Spot = s.Spot
 			return
 		}
 	}
@@ -600,7 +747,7 @@ func (w *World) reunite(k *Koala) {
 			return
 		}
 	}
-	w.climbBack(k)
+	w.climbBack(k, spotWay(config.Spots[k.Spot]))
 }
 
 // fallen is how far anything falls in t ticks from rest, in fixed point.
@@ -652,18 +799,19 @@ func (w *World) landArc(k *Koala) {
 	switch {
 	case k.Missed:
 		w.ground(k)
-	case k.x1 < k.x0 && k.X <= config.TrunkX*config.SubPx:
-		// Bounced back past the first station into the tree: the seeded
-		// RNG decides whether it grabs on where it hit and climbs to a
-		// spot, or slips and falls to the ground (DESIGN §5).
-		k.X = config.TrunkX * config.SubPx
-		if w.rng.IntN(100) < config.SlipChance {
-			k.State, k.Slipped, k.h0, k.t = Falling, true, k.H, 0
+	case k.x1 < k.x0 && k.X <= grabX(k.H):
+		// Bounced back past the first station into the tree: it thumps
+		// against the trunk's right side where it meets it, and the seeded
+		// RNG decides whether it then grabs on and climbs to a spot, or
+		// slips and falls to the ground (DESIGN §5).
+		k.X = grabX(k.H)
+		k.State, k.Timer = Thumped, config.ThumpTicks
+		k.Slipped = w.rng.IntN(100) < config.SlipChance
+		if k.Slipped {
 			w.emit(Slipped, 0)
-			return
+		} else {
+			w.emit(Grabbed, 0)
 		}
-		w.emit(Grabbed, 0)
-		w.climbBack(k)
 	case k.Target > w.Row.UteStation && k.X >= w.HeadboardX()-koalaHalf:
 		// Aimed past the tray: it bonks the headboard and drops into the
 		// tray (DESIGN §5).
@@ -682,6 +830,10 @@ func (w *World) landArc(k *Koala) {
 // koalaHalf is where a bonked koala drops, short of the headboard: about
 // half a koala's width.
 const koalaHalf = 8 * config.SubPx
+
+// grabX is where a koala bounced into the trunk at height h holds on to
+// its right side, in fixed point.
+func grabX(h int) int { return onTrunk(h).X }
 
 // catch bounces k off the sheet if the sheet is under it, by the zone it
 // lands in; otherwise k has missed and falls on.
