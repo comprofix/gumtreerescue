@@ -1,5 +1,6 @@
-# Personal working documents (not tracked). CLAUDE.md is tracked: the
-# template's setup guide. Personal instructions go in CLAUDE.local.md.
+# Personal working documents (not tracked), kept in project-notes and
+# symlinked in.
+CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
 DESIGN.md
