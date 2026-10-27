@@ -22,7 +22,8 @@ var Sounds = audio.Bank{}
 // Play is a game in progress.
 type Play struct {
 	world *world.World
-	mouse bool // the mouse is steering, until a key or the pad is used
+	mouse bool      // the mouse is steering, until a key or the pad is used
+	tree  treeCache // the gum tree, drawn once a level
 }
 
 // New starts a game at a skill, on the level the -level flag asks for.
