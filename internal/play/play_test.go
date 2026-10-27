@@ -64,9 +64,9 @@ func summary(p *Play) string {
 	w := p.World()
 	var b strings.Builder
 	fmt.Fprintf(&b, "level %d  score %d  lives %d  over %v\n", w.Level, w.Session.Score, w.Session.Lives, w.Over)
-	fmt.Fprintf(&b, "waiting %d  rescued %d  misses %d  sheet %d\n", w.Waiting, w.Rescued, w.Misses, w.Sheet)
+	fmt.Fprintf(&b, "waiting %d  rescued %d  misses %d  sheet %d\n", len(w.Tree), w.Rescued, w.Misses, w.Sheet)
 	for i, k := range w.Koalas {
-		fmt.Fprintf(&b, "koala %d: state %d x %d h %d target %d missed %v bonked %v\n", i, k.State, k.X, k.H, k.Target, k.Missed, k.Bonked)
+		fmt.Fprintf(&b, "koala %d: state %d x %d h %d target %d missed %v bonked %v joey %v\n", i, k.State, k.X, k.H, k.Target, k.Missed, k.Bonked, k.Joey)
 	}
 	return b.String()
 }

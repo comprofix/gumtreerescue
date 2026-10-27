@@ -1,6 +1,7 @@
 package world
 
 import (
+	"fmt"
 	"math/rand/v2"
 	"testing"
 
@@ -88,7 +89,7 @@ func TestArcsLandOnStations(t *testing.T) {
 		w := newWorld(t)
 		w.Row.UteStation = 4 // room to land anywhere
 		k := Koala{State: Falling, X: StationX(1), Target: 1, h0: 100 * config.SubPx, H: 100 * config.SubPx}
-		w.Koalas, w.Waiting = append(w.Koalas, k), 0
+		w.Koalas, w.Tree = append(w.Koalas, k), nil
 		in := holdFor(StationX(1), z)
 		w.Sheet = in.Target
 		run(t, w, func() Input { return in }, 200, func(es []Event) bool { return has(es, Bounced) })
@@ -164,10 +165,10 @@ func TestMissCrawlsBack(t *testing.T) {
 	if k.State != Dazed || k.H != -config.SheetHeight*config.SubPx {
 		t.Fatalf("missed koala is %v at h %d", k.State, k.H)
 	}
-	waiting := w.Waiting
+	waiting := len(w.Tree)
 	run(t, w, func() Input { return away }, 2000, func([]Event) bool { return len(w.Koalas) == 0 })
-	if w.Waiting != waiting+1 {
-		t.Errorf("waiting %d, want %d: the koala did not climb back", w.Waiting, waiting+1)
+	if len(w.Tree) != waiting+1 {
+		t.Errorf("waiting %d, want %d: the koala did not climb back", len(w.Tree), waiting+1)
 	}
 }
 
@@ -201,7 +202,7 @@ func TestHeadboardBonk(t *testing.T) {
 	w := newWorld(t)
 	from := w.Row.UteStation - 1
 	w.Koalas = append(w.Koalas, Koala{State: Falling, X: StationX(from), Target: from, h0: 50 * config.SubPx, H: 50 * config.SubPx})
-	w.Waiting = 0
+	w.Tree = nil
 	in := holdFor(StationX(from), 5)
 	w.Sheet = in.Target
 	bonked := false
@@ -225,7 +226,7 @@ func TestHeadboardBonk(t *testing.T) {
 // clean bonus, then the next level.
 func TestLevelDone(t *testing.T) {
 	w := newWorld(t)
-	w.Rescued, w.Waiting = config.KoalaLevel-1, 0
+	w.Rescued, w.Tree = config.KoalaLevel-1, nil
 	from := w.Row.UteStation - 1
 	w.Koalas = append(w.Koalas, Koala{State: Falling, X: StationX(from), Target: from, h0: 50 * config.SubPx, H: 50 * config.SubPx})
 	in := holdFor(StationX(from), 4)
@@ -235,8 +236,8 @@ func TestLevelDone(t *testing.T) {
 		t.Errorf("score %d, want %d with the clean bonus", w.Session.Score, want)
 	}
 	run(t, w, func() Input { return Input{} }, config.EndTicks+1, func([]Event) bool { return w.Level == 2 })
-	if w.Waiting != config.KoalaLevel || w.Rescued != 0 || len(w.Koalas) != 0 || w.Starting == 0 {
-		t.Errorf("level 2 starts with waiting %d rescued %d koalas %d starting %d", w.Waiting, w.Rescued, len(w.Koalas), w.Starting)
+	if len(w.Tree) != config.KoalaLevel || w.Rescued != 0 || len(w.Koalas) != 0 || w.Starting == 0 {
+		t.Errorf("level 2 starts with waiting %d rescued %d koalas %d starting %d", len(w.Tree), w.Rescued, len(w.Koalas), w.Starting)
 	}
 }
 
@@ -254,7 +255,7 @@ func TestGameOver(t *testing.T) {
 
 func TestSheetRangeAndSpeed(t *testing.T) {
 	w := newWorld(t)
-	w.Waiting = 0 // no koalas, so the game can't end
+	w.Tree = nil // no koalas, so the game can't end
 	lo, hi := w.SheetRange()
 	for range 1000 {
 		w.Update(Input{Dir: -1})
@@ -429,12 +430,78 @@ func TestSkills(t *testing.T) {
 	}
 }
 
+// TestJoeysInTheTree checks each level's tree holds as many joey carriers
+// as the table says, none before level 5, and that the seed picks which
+// (DESIGN §6).
+func TestJoeysInTheTree(t *testing.T) {
+	patterns := map[string]bool{}
+	for seed := range uint64(20) {
+		w := New(session.New(normal, normal.Lives), 1, rand.New(rand.NewPCG(seed, 3)))
+		for n := 1; n <= 10; n++ {
+			w.startLevel(n)
+			got := 0
+			for _, j := range w.Tree {
+				if j {
+					got++
+				}
+			}
+			if got != w.Row.Joeys || n < 5 && got != 0 {
+				t.Fatalf("seed %d level %d: %d joeys, want %d", seed, n, got, w.Row.Joeys)
+			}
+			if n == 5 {
+				patterns[fmt.Sprint(w.Tree)] = true
+			}
+		}
+	}
+	if config.LevelAt(5).Joeys == 0 {
+		t.Error("no joeys on level 5")
+	}
+	if len(patterns) < 2 {
+		t.Error("every seed put the joey on the same koala")
+	}
+}
+
+// TestJoeyDouble rescues a mother with a joey with a safe last bounce:
+// both score double (DESIGN §5).
+func TestJoeyDouble(t *testing.T) {
+	w := newWorld(t)
+	w.Tree = nil
+	from := w.Row.UteStation - 1
+	w.Koalas = append(w.Koalas, Koala{State: Falling, X: StationX(from), Target: from, h0: 50 * config.SubPx, H: 50 * config.SubPx, Joey: true})
+	in := holdFor(StationX(from), 4)
+	w.Sheet = in.Target
+	run(t, w, func() Input { return in }, 1000, func(es []Event) bool { return has(es, Rescued) })
+	if want := 2 * (config.SafePoints + config.RescuePoints); w.Session.Score != want {
+		t.Errorf("score %d, want %d", w.Session.Score, want)
+	}
+}
+
+// TestJoeyKeptAfterMiss misses a mother with a joey: she climbs back up
+// still carrying it, and drops with it again (DESIGN §5).
+func TestJoeyKeptAfterMiss(t *testing.T) {
+	w := newWorld(t)
+	w.Tree = []bool{true}
+	away := Input{Dir: 1}
+	run(t, w, func() Input { return away }, 2000, func(es []Event) bool { return has(es, Missed) })
+	if !w.Koalas[0].Joey {
+		t.Fatal("the koala dropped without her joey")
+	}
+	run(t, w, func() Input { return away }, 2000, func([]Event) bool { return len(w.Koalas) == 0 })
+	if len(w.Tree) != 1 || !w.Tree[0] {
+		t.Fatalf("tree %v after she climbed back, want [true]", w.Tree)
+	}
+	run(t, w, func() Input { return away }, 2000, func(es []Event) bool { return has(es, Wobble) })
+	if !w.Koalas[0].Joey {
+		t.Error("she dropped again without her joey")
+	}
+}
+
 // TestFairHoldsDrops checks the scheduler won't drop a koala that lands
 // when another, far off, is due on the sheet, and will when they land
 // together.
 func TestFairHoldsDrops(t *testing.T) {
 	w := newWorld(t)
-	w.Waiting = 0
+	w.Tree = nil
 	d := w.Row.Drops[0]
 	k := newKoala(d)
 	_, ticks, _ := w.Landing(&k)
@@ -455,7 +522,7 @@ func TestFairHoldsDrops(t *testing.T) {
 	if koalas, rangers := w.fair(&k); !koalas || rangers {
 		t.Errorf("rangers out of reach: fair %v, %v; want true, false", koalas, rangers)
 	}
-	w.Waiting, w.nextDrop = 1, 1
+	w.Tree, w.nextDrop = []bool{false}, 1
 	for range config.DropWait {
 		if has(w.Update(Input{}), Wobble) {
 			t.Fatal("dropped with the rangers out of reach")

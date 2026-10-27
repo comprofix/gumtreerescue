@@ -13,7 +13,7 @@ type Level struct {
 	GapTicks    int    // between one koala dropping and the next
 	UteStation  int    // where the ute parks
 	Drops       []Drop // where koalas drop from
-	Joeys       int    // koalas carrying a joey (PLAN M3)
+	Joeys       int    // koalas carrying a joey, worth double (DESIGN §6)
 	Intro       string // the level's one new thing, on its intro card
 }
 
@@ -34,9 +34,9 @@ var Levels = []Level{
 	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 3, Drops: []Drop{hanging}, Intro: "A LITTLE FASTER"},
 	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 3, Drops: []Drop{hanging, higher}, Intro: "A HIGHER BRANCH!"},
 	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 4, Drops: []Drop{hanging, higher}, Intro: "THE UTE MOVES BACK"},
-	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{hanging, higher}, Intro: "FASTER AGAIN"},
-	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{hanging, higher, lower}, Intro: "A LOWER BRANCH!"},
-	{BounceTicks: 84, GapTicks: 5 * TPS, UteStation: 5, Drops: []Drop{hanging, higher, lower}, Intro: "THE UTE MOVES BACK AGAIN"},
+	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{hanging, higher}, Joeys: 1, Intro: "A JOEY! WORTH DOUBLE"},
+	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{hanging, higher, lower}, Joeys: 1, Intro: "A LOWER BRANCH!"},
+	{BounceTicks: 84, GapTicks: 5 * TPS, UteStation: 5, Drops: []Drop{hanging, higher, lower}, Joeys: 2, Intro: "THE UTE MOVES BACK AGAIN"},
 }
 
 // The endless levels past the table (DESIGN §5): each is SpeedNudge ticks

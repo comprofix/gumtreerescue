@@ -45,6 +45,9 @@ type Koala struct {
 	// Timer counts down while it wobbles, is dazed, climbs or is dazed in
 	// the tray.
 	Timer int
+	// Joey is set for a mother with a joey on her back: her bounces and
+	// rescue score double (DESIGN §6).
+	Joey bool
 
 	x0, x1 int // an arc's start and end, across
 	h0     int // a fall's starting height
@@ -91,11 +94,14 @@ type World struct {
 	Row     config.Level
 	Sheet   int // the sheet's middle, across the field in fixed point
 	Koalas  []Koala
-	Waiting int // koalas in the tree waiting to drop
 	Rescued int // koalas in the tray this level
 	Misses  int // misses this level
 	Gained  int // extra lives this level
 	Over    bool
+
+	// Tree is the koalas waiting in the tree, the next to drop first: true
+	// for one carrying a joey. Koalas that climb back join the end.
+	Tree []bool
 
 	// Starting counts down the intro card before the level's koalas drop;
 	// Ending, the drive-off and tally after its last rescue.
@@ -118,12 +124,19 @@ func New(s *session.Session, level int, rng *rand.Rand) *World {
 	return w
 }
 
-// startLevel fills the tree with the level's koalas and puts the rangers
-// under the first drop point (DESIGN §5).
+// startLevel fills the tree with the level's koalas, the seeded RNG picking
+// which carry joeys, and puts the rangers under the first drop point
+// (DESIGN §5, §6).
 func (w *World) startLevel(n int) {
 	w.Level, w.Row = n, config.LevelAt(n)
 	w.Koalas = w.Koalas[:0]
-	w.Waiting, w.Rescued, w.Misses, w.Gained = config.KoalaLevel, 0, 0, 0
+	w.Tree = make([]bool, config.KoalaLevel)
+	if w.Row.Joeys > 0 {
+		for _, i := range w.rng.Perm(config.KoalaLevel)[:w.Row.Joeys] {
+			w.Tree[i] = true
+		}
+	}
+	w.Rescued, w.Misses, w.Gained = 0, 0, 0
 	w.Sheet = StationX(w.Row.Drops[0].Station)
 	w.Starting, w.Ending = config.LevelTicks, 0
 	w.nextDrop, w.waited = config.FirstDrop, 0
@@ -190,7 +203,7 @@ func (w *World) Update(in Input) []Event {
 			return w.events
 		}
 	}
-	w.Koalas = removeClimbed(w.Koalas, &w.Waiting)
+	w.Koalas = removeClimbed(w.Koalas, &w.Tree)
 	w.drop()
 	if w.Rescued >= config.KoalaLevel {
 		if w.Misses == 0 {
@@ -236,7 +249,7 @@ func (w *World) moveSheet(in Input) {
 // drop sends the next koala out to wobble on its branch when it is due and
 // the scheduler finds it fair (PLAN §3); otherwise it tries again shortly.
 func (w *World) drop() {
-	if w.Waiting == 0 {
+	if len(w.Tree) == 0 {
 		return
 	}
 	if w.nextDrop--; w.nextDrop > 0 {
@@ -244,6 +257,7 @@ func (w *World) drop() {
 	}
 	d := w.Row.Drops[w.rng.IntN(len(w.Row.Drops))]
 	k := newKoala(d)
+	k.Joey = w.Tree[0]
 	koalas, rangers := w.fair(&k)
 	if !koalas || !rangers && w.waited < config.DropWait {
 		w.nextDrop = config.DropRetry
@@ -253,7 +267,7 @@ func (w *World) drop() {
 		return
 	}
 	w.nextDrop, w.waited = w.Row.GapTicks+w.rng.IntN(config.DropJitter+1), 0
-	w.Waiting--
+	w.Tree = w.Tree[1:]
 	w.Koalas = append(w.Koalas, k)
 	w.emit(Wobble, 0)
 }
@@ -377,7 +391,7 @@ func (w *World) landFall(k *Koala) {
 	case k.H > 0:
 	case k.Bonked:
 		k.H, k.State, k.Timer = 0, InTray, config.BonkedTicks
-		w.rescue()
+		w.rescue(k)
 	default:
 		k.H = 0
 		w.catch(k)
@@ -404,7 +418,7 @@ func (w *World) landArc(k *Koala) {
 	case k.t < w.Row.BounceTicks:
 	case k.Target == w.Row.UteStation:
 		k.H, k.State = 0, InTray
-		w.rescue()
+		w.rescue(k)
 	default:
 		w.catch(k)
 	}
@@ -427,8 +441,16 @@ func (w *World) catch(k *Koala) {
 	k.State, k.Target, k.t = Arcing, to, 0
 	k.x0, k.x1 = StationX(from), StationX(to)
 	k.X, k.H = k.x0, 0
-	w.score(bouncePoints(zone, to > w.Row.UteStation))
+	w.score(worth(k, bouncePoints(zone, to > w.Row.UteStation)))
 	w.emit(Bounced, zone)
+}
+
+// worth is what points are worth for k: double with a joey (DESIGN §5).
+func worth(k *Koala, points int) int {
+	if k.Joey {
+		return 2 * points
+	}
+	return points
 }
 
 // bouncePoints is what a bounce from zone scores (DESIGN §5): only
@@ -463,10 +485,10 @@ func (w *World) ZoneAt(x int) (zone int, ok bool) {
 	return 5, true
 }
 
-// rescue counts a koala landed in the tray.
-func (w *World) rescue() {
+// rescue counts k landed in the tray.
+func (w *World) rescue(k *Koala) {
 	w.Rescued++
-	w.score(config.RescuePoints)
+	w.score(worth(k, config.RescuePoints))
 	w.emit(Rescued, 0)
 }
 
@@ -486,12 +508,13 @@ func (w *World) ground(k *Koala) {
 }
 
 // removeClimbed takes out the koalas that have climbed back up the tree,
-// adding them to those waiting.
-func removeClimbed(ks []Koala, waiting *int) []Koala {
+// adding them to the end of those waiting, a joey still on any mother's
+// back (DESIGN §5).
+func removeClimbed(ks []Koala, tree *[]bool) []Koala {
 	out := ks[:0]
 	for _, k := range ks {
 		if k.State == Climbing && k.Timer <= 0 {
-			*waiting++
+			*tree = append(*tree, k.Joey)
 			continue
 		}
 		out = append(out, k)

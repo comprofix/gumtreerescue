@@ -56,7 +56,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	w := p.world
 	drawBackdrop(pn)
 	drawTree(pn, w.Row.Drops)
-	drawWaiting(pn, w.Waiting)
+	drawWaiting(pn, w.Tree)
 	ute := px(w.UteX()) + uteShift(w)
 	drawUte(pn, ute)
 	drawTray(pn, w, ute)
@@ -71,16 +71,16 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	for i := range w.Koalas {
 		switch k := &w.Koalas[i]; k.State {
 		case world.Wobbling:
-			drawKoala(pn, px(k.X)+1.5*math.Sin(float64(k.Timer)*0.9), koalaY(k), false)
+			drawKoala(pn, px(k.X)+1.5*math.Sin(float64(k.Timer)*0.9), koalaY(k), false, k.Joey)
 		case world.Falling, world.Arcing, world.Climbing:
-			drawKoala(pn, px(k.X), koalaY(k), false)
+			drawKoala(pn, px(k.X), koalaY(k), false, k.Joey)
 		}
 	}
 	drawRangers(pn, px(w.Sheet))
 	// Koalas on the ground pass in front of the rangers (DESIGN §5).
 	for i := range w.Koalas {
 		if k := &w.Koalas[i]; k.State == world.Dazed || k.State == world.Crawling {
-			drawKoala(pn, px(k.X), koalaY(k), k.State == world.Crawling)
+			drawKoala(pn, px(k.X), koalaY(k), k.State == world.Crawling, k.Joey)
 		}
 	}
 	drawHUD(ctx, dst, w)
@@ -187,9 +187,9 @@ var waitSpots = [config.KoalaLevel][2]float64{
 	{58, 230}, {20, 262}, {8, 330}, {130, 64}, {70, 100},
 }
 
-func drawWaiting(p pen, n int) {
-	for i := range min(n, len(waitSpots)) {
-		drawKoala(p, waitSpots[i][0], waitSpots[i][1], false)
+func drawWaiting(p pen, tree []bool) {
+	for i := range min(len(tree), len(waitSpots)) {
+		drawKoala(p, waitSpots[i][0], waitSpots[i][1], false, tree[i])
 	}
 }
 
@@ -225,7 +225,7 @@ func drawTray(p pen, w *world.World, x float64) {
 	n := 0
 	for i := range w.Koalas {
 		if k := &w.Koalas[i]; k.State == world.InTray {
-			drawKoala(p, left+9+float64(n%5)*16, deck-float64(n/5)*6, false)
+			drawKoala(p, left+9+float64(n%5)*16, deck-float64(n/5)*6, false, k.Joey)
 			n++
 		}
 	}
@@ -240,14 +240,17 @@ func drawMarker(p pen, x float64) {
 }
 
 // drawKoala draws a koala with its feet at (x, y): sitting, or on all
-// fours when crawling.
-func drawKoala(p pen, x, y float64, crawling bool) {
+// fours when crawling, with a joey on its back if it carries one.
+func drawKoala(p pen, x, y float64, crawling, joey bool) {
 	if crawling {
 		p.round(x-9, y-10, 18, 10, 5, resurrect64.Fog)
 		p.circle(x-10, y-10, 6, resurrect64.Fog)
 		p.circle(x-14, y-15, 3, resurrect64.Fog)
 		p.circle(x-6, y-15, 3, resurrect64.Fog)
 		p.circle(x-14, y-9, 2, resurrect64.Ink)
+		if joey {
+			drawJoey(p, x+2, y-12)
+		}
 		return
 	}
 	p.round(x-7, y-12, 14, 12, 5, resurrect64.Fog)
@@ -257,6 +260,18 @@ func drawKoala(p pen, x, y float64, crawling bool) {
 	p.circle(x-6, y-20, 1.8, resurrect64.Mist)
 	p.circle(x+6, y-20, 1.8, resurrect64.Mist)
 	p.round(x-2, y-17, 4, 5, 2, resurrect64.Ink)
+	if joey {
+		drawJoey(p, x+9, y-7)
+	}
+}
+
+// drawJoey is a joey's head and ears peeking over its mother's shoulder,
+// its chin at (x, y).
+func drawJoey(p pen, x, y float64) {
+	p.circle(x-3, y-6, 2.2, resurrect64.Mist)
+	p.circle(x+3, y-6, 2.2, resurrect64.Mist)
+	p.circle(x, y-3, 3.5, resurrect64.Mist)
+	p.circle(x, y-2, 1.2, resurrect64.Ink)
 }
 
 // drawRangers draws the two rangers holding the sheet, its middle at x,
