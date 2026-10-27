@@ -1,6 +1,18 @@
 # Gum Tree Rescue
 
+Bounce koalas falling from a gum tree into the rescue ute.
+
 Created from [gameskeleton](https://github.com/comprofix/gameskeleton) v0.5.1.
+
+## Download
+
+Builds for Windows and Linux (64-bit) are on the
+[Releases](https://github.com/comprofix/gumtreerescue/releases) page, with
+`SHA256SUMS.txt` to check them against.
+
+- **Windows:** unzip `gumtreerescue-vX.Y.Z-windows-amd64.zip` and run `gumtreerescue.exe`.
+- **Linux:** extract `gumtreerescue-vX.Y.Z-linux-amd64.tar.gz` and run `./gumtreerescue`.
+  It needs OpenGL, X11 and ALSA, which desktop systems already have.
 
 ## Requirements
 
