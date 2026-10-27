@@ -19,7 +19,8 @@ import (
 type State int
 
 const (
-	Falling  State = iota // dropped from a branch, or bonked and dropping into the tray
+	Wobbling State = iota // on its branch, about to drop
+	Falling               // dropped from a branch, or bonked and dropping into the tray
 	Arcing                // bounced, on its way to a station
 	Dazed                 // missed: sitting dazed on the ground
 	Crawling              // crawling back to the tree
@@ -33,15 +34,16 @@ type Koala struct {
 	// X and H are where it is: across the field, and its height above the
 	// sheet (below it, negative), in fixed point.
 	X, H int
-	// Target is the station it will land on: below it while it falls,
-	// where an arc ends while it arcs.
+	// Target is the station it will land on: below it while it wobbles and
+	// falls, where an arc ends while it arcs.
 	Target int
 	// Missed is set once it has passed the sheet uncaught; it falls on to
 	// the ground.
 	Missed bool
 	// Bonked is set once it has hit the ute's headboard (DESIGN §5).
 	Bonked bool
-	// Timer counts down while it is dazed, climbing or dazed in the tray.
+	// Timer counts down while it wobbles, is dazed, climbs or is dazed in
+	// the tray.
 	Timer int
 
 	x0, x1 int // an arc's start and end, across
@@ -53,7 +55,8 @@ type Koala struct {
 type EventKind int
 
 const (
-	Dropped    EventKind = iota // a koala dropped from a branch
+	Wobble     EventKind = iota // a koala started to wobble on its branch
+	Dropped                     // a koala dropped from a branch
 	Bounced                     // caught on the sheet; Zone says where
 	Rescued                     // a koala landed in the tray
 	Bonked                      // a koala hit the headboard
@@ -169,7 +172,6 @@ func (w *World) Update(in Input) []Event {
 		}
 		return w.events
 	}
-	w.drop()
 	for i := range w.Koalas {
 		w.step(&w.Koalas[i])
 		if w.Over {
@@ -177,6 +179,7 @@ func (w *World) Update(in Input) []Event {
 		}
 	}
 	w.Koalas = removeClimbed(w.Koalas, &w.Waiting)
+	w.drop()
 	if w.Rescued >= config.KoalaLevel {
 		if w.Misses == 0 {
 			w.Session.AddScore(config.CleanBonus)
@@ -203,7 +206,7 @@ func (w *World) moveSheet(in Input) {
 	w.Sheet = min(max(w.Sheet, lo), hi)
 }
 
-// drop lets the next koala go when it is due.
+// drop sends the next koala out to wobble on its branch when it is due.
 func (w *World) drop() {
 	if w.Waiting == 0 {
 		return
@@ -213,17 +216,24 @@ func (w *World) drop() {
 	}
 	w.nextDrop = w.Row.GapTicks
 	w.Waiting--
-	d := w.Row.Drops[w.rng.IntN(len(w.Row.Drops))]
-	w.Koalas = append(w.Koalas, Koala{
-		State: Falling, X: StationX(d.Station), H: d.Height * config.SubPx,
-		Target: d.Station, h0: d.Height * config.SubPx,
-	})
-	w.emit(Dropped, 0)
+	w.Koalas = append(w.Koalas, newKoala(w.Row.Drops[w.rng.IntN(len(w.Row.Drops))]))
+	w.emit(Wobble, 0)
+}
+
+// newKoala is a koala on drop point d, starting its wobble.
+func newKoala(d config.Drop) Koala {
+	h := d.Height * config.SubPx
+	return Koala{State: Wobbling, X: StationX(d.Station), H: h, h0: h, Target: d.Station, Timer: config.WobbleTicks}
 }
 
 // step moves one koala on a tick.
 func (w *World) step(k *Koala) {
 	switch k.State {
+	case Wobbling:
+		if k.Timer--; k.Timer <= 0 {
+			k.State, k.t = Falling, 0
+			w.emit(Dropped, 0)
+		}
 	case Falling:
 		k.t++
 		k.H = k.h0 - w.fallen(k.t)
@@ -254,6 +264,16 @@ func (w *World) step(k *Koala) {
 func (w *World) fallen(t int) int {
 	T := w.Row.BounceTicks
 	return 4 * config.PeakPx * config.SubPx * t * t / (T * T)
+}
+
+// fallTicks is how many ticks a fall from rest at h0 takes to reach the
+// sheet.
+func (w *World) fallTicks(h0 int) int {
+	t := 0
+	for h0-w.fallen(t) > 0 {
+		t++
+	}
+	return t
 }
 
 // arcAt places an arcing koala t ticks into its bounce: across in a
@@ -403,6 +423,8 @@ func (w *World) Landing(k *Koala) (station, ticks int, ok bool) {
 	switch {
 	case k.Missed:
 		return 0, 0, false
+	case k.State == Wobbling:
+		return k.Target, k.Timer + w.fallTicks(k.h0), true
 	case k.State == Arcing:
 		return k.Target, w.Row.BounceTicks - k.t, true
 	case k.State == Falling && !k.Bonked:

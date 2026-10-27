@@ -2,6 +2,7 @@ package play
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -54,7 +55,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	pn := pen{dst, scale(ctx)}
 	w := p.world
 	drawBackdrop(pn)
-	drawTree(pn)
+	drawTree(pn, w.Row.Drops)
 	drawWaiting(pn, w.Waiting)
 	drawUte(pn, px(w.UteX()))
 	drawTray(pn, w)
@@ -67,7 +68,10 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 		}
 	}
 	for i := range w.Koalas {
-		if k := &w.Koalas[i]; k.State == world.Falling || k.State == world.Arcing || k.State == world.Climbing {
+		switch k := &w.Koalas[i]; k.State {
+		case world.Wobbling:
+			drawKoala(pn, px(k.X)+1.5*math.Sin(float64(k.Timer)*0.9), koalaY(k), false)
+		case world.Falling, world.Arcing, world.Climbing:
 			drawKoala(pn, px(k.X), koalaY(k), false)
 		}
 	}
@@ -126,9 +130,9 @@ func drawBackdrop(p pen) {
 	p.rect(0, config.GroundY, w, 3, resurrect64.Caramel)
 }
 
-// drawTree is the gum tree: its trunk, canopy and the hanging branch over
-// the first station (DESIGN §2).
-func drawTree(p pen) {
+// drawTree is the gum tree: its trunk, canopy and a branch reaching out to
+// each of the level's drop points (DESIGN §2, §5).
+func drawTree(p pen, drops []config.Drop) {
 	t := float64(config.TrunkX)
 	p.poly(resurrect64.Sand, 14, config.GroundY, t, config.GroundY, t-6, 140, t-12, 60, 24, 60, 20, 140)
 	p.line(44, 150, 100, 120, 6, resurrect64.Sand)
@@ -139,11 +143,12 @@ func drawTree(p pen) {
 	for _, c := range [][3]float64{{30, 25, 20}, {80, 30, 18}, {115, 55, 14}, {0, 70, 16}} {
 		p.circle(c[0], c[1], c[2], resurrect64.Emerald)
 	}
-	// The hanging branch, reaching out over the first station.
-	x0 := float64(config.Station0X)
-	y := float64(config.SheetY - config.LevelAt(1).Drops[0].Height)
-	p.line(t-10, y+30, x0-20, y, 7, resurrect64.Sand)
-	p.line(x0-22, y, x0+22, y, 5, resurrect64.Sand)
+	for _, d := range drops {
+		x0 := px(world.StationX(d.Station))
+		y := float64(config.SheetY - d.Height)
+		p.line(t-10, y+30, x0-20, y, 7, resurrect64.Sand)
+		p.line(x0-22, y, x0+22, y, 5, resurrect64.Sand)
+	}
 }
 
 // waitSpots are where waiting koalas sit in the tree: on branches, in the

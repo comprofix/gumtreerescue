@@ -12,7 +12,7 @@ import (
 var normal = config.Skills[1]
 
 // newWorld is a game on level 1 at Normal, past the level's opening pause,
-// with the first koala about to drop.
+// with the first koala about to start its wobble.
 func newWorld(t *testing.T) *World {
 	t.Helper()
 	w := New(session.New(normal, normal.Lives), 1, rand.New(rand.NewPCG(1, 2)))
@@ -327,6 +327,62 @@ func TestLanding(t *testing.T) {
 	w.Update(Input{})
 	if k.State == Falling && !k.Missed {
 		t.Errorf("not down when Landing said, h %d", k.H)
+	}
+}
+
+// TestWobble checks a koala wobbles on its branch for WobbleTicks before it
+// drops (DESIGN §5).
+func TestWobble(t *testing.T) {
+	w := newWorld(t)
+	if es := w.Update(Input{}); !has(es, Wobble) || w.Koalas[0].State != Wobbling {
+		t.Fatalf("no wobble: %v", es)
+	}
+	k := &w.Koalas[0]
+	h := k.H
+	for range config.WobbleTicks - 1 {
+		if has(w.Update(Input{}), Dropped) {
+			t.Fatal("dropped before the wobble was over")
+		}
+	}
+	if es := w.Update(Input{}); !has(es, Dropped) || k.State != Falling || k.H != h {
+		t.Errorf("after the wobble: %v, %v at h %d, want Falling at %d", es, k.State, k.H, h)
+	}
+}
+
+// TestBranches checks drop points join the level table as DESIGN §5 says:
+// one branch on levels 1 and 2, a higher one from 3, a lower one from 6,
+// and the drops come from all of them.
+func TestBranches(t *testing.T) {
+	for n, want := range []int{1, 1, 2, 2, 2, 3, 3} {
+		if got := len(config.LevelAt(n + 1).Drops); got != want {
+			t.Errorf("level %d: %d drop points, want %d", n+1, got, want)
+		}
+	}
+	w := newWorld(t)
+	w.startLevel(6)
+	seen := map[int]bool{}
+	for range 200 {
+		k := newKoala(w.Row.Drops[w.rng.IntN(len(w.Row.Drops))])
+		seen[k.H] = true
+	}
+	if len(seen) != 3 {
+		t.Errorf("drops came from %d heights, want 3", len(seen))
+	}
+}
+
+// TestEndless checks the levels past the table repeat the last row, each a
+// bounce quicker, down to the fastest (DESIGN §5).
+func TestEndless(t *testing.T) {
+	last := config.Levels[len(config.Levels)-1]
+	n := len(config.Levels)
+	if got := config.LevelAt(n + 1); got.BounceTicks != last.BounceTicks-config.SpeedNudge || got.Intro != config.EndlessIntro || got.UteStation != last.UteStation {
+		t.Errorf("level %d: %+v", n+1, got)
+	}
+	if got := config.LevelAt(n + 3).BounceTicks; got != last.BounceTicks-3*config.SpeedNudge {
+		t.Errorf("level %d: bounce %d", n+3, got)
+	}
+	if got := config.LevelAt(1000).BounceTicks; got != config.FastestBounce {
+		t.Errorf("level 1000: bounce %d, want %d", got, config.FastestBounce)
 	}
 }
 

@@ -69,6 +69,7 @@ const (
 	BonkedTicks  = 2 * TPS       // dazed in the tray after a headboard bonk
 	LevelTicks   = 2 * TPS       // the pause before a level starts
 	FirstDrop    = TPS / 2       // after that pause, until the first drop
+	WobbleTicks  = TPS / 2       // a koala wobbles at its drop point before it falls
 	KoalaLevel   = 10            // koalas rescued to finish a level
 	GameOverHold = 2 * TPS       // the finished game stays on screen
 )

@@ -13,21 +13,54 @@ type Level struct {
 	GapTicks    int    // between one koala dropping and the next
 	UteStation  int    // where the ute parks
 	Drops       []Drop // where koalas drop from
+	Joeys       int    // koalas carrying a joey (PLAN M3)
+	Intro       string // the level's one new thing, on its intro card
 }
 
-// Levels is the level table, from level 1. Past its end, the last row
-// repeats.
+// The drop points: the hanging branch, and the higher and lower branches
+// that join it from levels 3 and 6. All are above the first station, so
+// the ute is always far enough away (MinUteSteps).
+var (
+	hanging = Drop{Station: 0, Height: 200}
+	higher  = Drop{Station: 0, Height: 250}
+	lower   = Drop{Station: 0, Height: 160}
+)
+
+// Levels is the level table, from level 1. Each level adds one new thing
+// (DESIGN §5). Past its end, the last row repeats ever faster (LevelAt).
 var Levels = []Level{
 	// Level 1 teaches: one koala in the air at a time.
-	{BounceTicks: 96, GapTicks: 6 * TPS, UteStation: 3, Drops: []Drop{{Station: 0, Height: 200}}},
+	{BounceTicks: 96, GapTicks: 6 * TPS, UteStation: 3, Drops: []Drop{hanging}, Intro: "CATCH THE KOALAS!"},
+	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 3, Drops: []Drop{hanging}, Intro: "A LITTLE FASTER"},
+	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 3, Drops: []Drop{hanging, higher}, Intro: "A HIGHER BRANCH!"},
+	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 4, Drops: []Drop{hanging, higher}, Intro: "THE UTE MOVES BACK"},
+	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{hanging, higher}, Intro: "FASTER AGAIN"},
+	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{hanging, higher, lower}, Intro: "A LOWER BRANCH!"},
+	{BounceTicks: 84, GapTicks: 5 * TPS, UteStation: 5, Drops: []Drop{hanging, higher, lower}, Intro: "THE UTE MOVES BACK AGAIN"},
 }
+
+// The endless levels past the table (DESIGN §5): each is SpeedNudge ticks
+// a bounce quicker than the one before, down to FastestBounce.
+const (
+	SpeedNudge    = 2
+	FastestBounce = 60
+	EndlessIntro  = "FASTER!"
+)
 
 // MinUteSteps is how close the ute may park to a drop point, in stations:
 // no nearer than 3, so no single catch reaches the tray and every rescue
 // needs the rangers to move (DESIGN §5).
 const MinUteSteps = 3
 
-// LevelAt is level n's row, counting from 1.
+// LevelAt is level n's row, counting from 1. Past the table the last row
+// repeats with its bounce nudged quicker each level.
 func LevelAt(n int) Level {
-	return Levels[min(max(n, 1), len(Levels))-1]
+	n = max(n, 1)
+	if n <= len(Levels) {
+		return Levels[n-1]
+	}
+	l := Levels[len(Levels)-1]
+	l.BounceTicks = max(l.BounceTicks-(n-len(Levels))*SpeedNudge, FastestBounce)
+	l.Intro = EndlessIntro
+	return l
 }
