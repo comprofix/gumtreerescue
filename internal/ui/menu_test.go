@@ -6,8 +6,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/comprofix/gameskeleton/internal/gfx"
-	"github.com/comprofix/gameskeleton/internal/input"
+	"github.com/comprofix/gumtreerescue/internal/gfx"
+	"github.com/comprofix/gumtreerescue/internal/input"
 )
 
 func feed(steps ...input.Step) *input.Input {

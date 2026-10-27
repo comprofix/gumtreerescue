@@ -16,7 +16,7 @@ games are created from it (it is a GitHub template repository),
 so it must stay **game-agnostic**. The only game content is the small demo
 ("Dot Dash"), which is pixel art.
 
-- Remote: `git@github.com:comprofix/gameskeleton.git`
+- Remote: `git@github.com:comprofix/gumtreerescue.git`
 - `DESIGN.md` and `PLAN.md` are local working documents, **not tracked in git**.
 
 > During new game setup (§2), Claude replaces this section with the game's own
@@ -182,16 +182,16 @@ tracked; personal instructions go in CLAUDE.local.md, which is not.
   the game.
 
 ```sh
-go run ./cmd/gameskeleton                 # run the game
-go run -tags debug ./cmd/gameskeleton     # with the debug overlay
-go run ./cmd/gameskeleton -seed 42        # with a fixed random seed
-go run ./cmd/gameskeleton -level 5        # start games on level 5, for a game with levels (no scores)
+go run ./cmd/gumtreerescue                 # run the game
+go run -tags debug ./cmd/gumtreerescue     # with the debug overlay
+go run ./cmd/gumtreerescue -seed 42        # with a fixed random seed
+go run ./cmd/gumtreerescue -level 5        # start games on level 5, for a game with levels (no scores)
 go generate ./assets                      # rebuild sprite sheets from assets/sprites/*.txt
 go run ./tools/spritegen -in assets/sprites -out assets/gen -preview <dir>
-go build -o bin/ ./cmd/gameskeleton
+go build -o bin/ ./cmd/gumtreerescue
 go vet ./...
 go test ./...
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/gameskeleton.exe ./cmd/gameskeleton
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/gumtreerescue.exe ./cmd/gumtreerescue
 ```
 
 Linux builds need cgo and the X11/GL/ALSA development packages:

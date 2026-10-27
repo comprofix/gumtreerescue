@@ -1,8 +1,8 @@
 package scene
 
 import (
-	"github.com/comprofix/gameskeleton/internal/audio"
-	"github.com/comprofix/gameskeleton/internal/ui"
+	"github.com/comprofix/gumtreerescue/internal/audio"
+	"github.com/comprofix/gumtreerescue/internal/ui"
 )
 
 // The shared scenes' sounds. In Chip4, channel 0 carries the tune's lead,

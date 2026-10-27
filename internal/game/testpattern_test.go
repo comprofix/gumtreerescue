@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/comprofix/gameskeleton/internal/config"
+	"github.com/comprofix/gumtreerescue/internal/config"
 )
 
 func TestTestPatternShowsEveryColour(t *testing.T) {

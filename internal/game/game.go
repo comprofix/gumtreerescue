@@ -14,15 +14,15 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
-	"github.com/comprofix/gameskeleton/assets"
-	"github.com/comprofix/gameskeleton/internal/audio"
-	"github.com/comprofix/gameskeleton/internal/config"
-	"github.com/comprofix/gameskeleton/internal/debug"
-	"github.com/comprofix/gameskeleton/internal/gfx"
-	"github.com/comprofix/gameskeleton/internal/input"
-	"github.com/comprofix/gameskeleton/internal/scene"
-	"github.com/comprofix/gameskeleton/internal/score"
-	"github.com/comprofix/gameskeleton/internal/ui"
+	"github.com/comprofix/gumtreerescue/assets"
+	"github.com/comprofix/gumtreerescue/internal/audio"
+	"github.com/comprofix/gumtreerescue/internal/config"
+	"github.com/comprofix/gumtreerescue/internal/debug"
+	"github.com/comprofix/gumtreerescue/internal/gfx"
+	"github.com/comprofix/gumtreerescue/internal/input"
+	"github.com/comprofix/gumtreerescue/internal/scene"
+	"github.com/comprofix/gumtreerescue/internal/score"
+	"github.com/comprofix/gumtreerescue/internal/ui"
 )
 
 // Saved is what was loaded from the saved files, and where they live.

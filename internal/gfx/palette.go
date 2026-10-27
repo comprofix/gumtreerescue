@@ -3,8 +3,8 @@ package gfx
 import (
 	"image/color"
 
-	"github.com/comprofix/gameskeleton/internal/config"
-	"github.com/comprofix/gameskeleton/internal/gfx/palettes"
+	"github.com/comprofix/gumtreerescue/internal/config"
+	"github.com/comprofix/gumtreerescue/internal/gfx/palettes"
 )
 
 // Palette is the game's palette, chosen by the project preset. Code names

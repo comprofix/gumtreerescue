@@ -1,4 +1,4 @@
-module github.com/comprofix/gameskeleton
+module github.com/comprofix/gumtreerescue
 
 go 1.27.0
 
