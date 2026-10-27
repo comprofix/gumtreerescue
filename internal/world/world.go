@@ -100,8 +100,10 @@ type World struct {
 	Starting, Ending int
 
 	nextDrop int // ticks until the next drop
+	waited   int // how long the due drop has been held back
 	rng      *rand.Rand
 	events   []Event
+	catches  []catchAt // reused by fair
 }
 
 // New starts a game on level (1 or more) with the lives of the session's
@@ -121,13 +123,20 @@ func (w *World) startLevel(n int) {
 	w.Waiting, w.Rescued, w.Misses = config.KoalaLevel, 0, 0
 	w.Sheet = StationX(w.Row.Drops[0].Station)
 	w.Starting, w.Ending = config.LevelTicks, 0
-	w.nextDrop = config.FirstDrop
+	w.nextDrop, w.waited = config.FirstDrop, 0
 }
 
 // StationX is station n's place across the field, in fixed point. Stations
 // left of the first are past the trunk.
 func StationX(n int) int {
 	return (config.Station0X + n*config.StepPx) * config.SubPx
+}
+
+// SafeSheetX is where the sheet's middle is for a koala landing on station
+// n to land in the middle of zone 4, a safe bounce right.
+func SafeSheetX(n int) int {
+	middle := config.ZoneSharp + config.ZoneSafe + config.ZoneCentre + config.ZoneSafe/2 - config.SheetWidth/2
+	return StationX(n) - middle*config.SubPx
 }
 
 // UteX is where the ute is parked: its station, in fixed point.
@@ -206,7 +215,8 @@ func (w *World) moveSheet(in Input) {
 	w.Sheet = min(max(w.Sheet, lo), hi)
 }
 
-// drop sends the next koala out to wobble on its branch when it is due.
+// drop sends the next koala out to wobble on its branch when it is due and
+// the scheduler finds it fair (PLAN §3); otherwise it tries again shortly.
 func (w *World) drop() {
 	if w.Waiting == 0 {
 		return
@@ -214,9 +224,19 @@ func (w *World) drop() {
 	if w.nextDrop--; w.nextDrop > 0 {
 		return
 	}
-	w.nextDrop = w.Row.GapTicks
+	d := w.Row.Drops[w.rng.IntN(len(w.Row.Drops))]
+	k := newKoala(d)
+	koalas, rangers := w.fair(&k)
+	if !koalas || !rangers && w.waited < config.DropWait {
+		w.nextDrop = config.DropRetry
+		if koalas {
+			w.waited += config.DropRetry
+		}
+		return
+	}
+	w.nextDrop, w.waited = w.Row.GapTicks+w.rng.IntN(config.DropJitter+1), 0
 	w.Waiting--
-	w.Koalas = append(w.Koalas, newKoala(w.Row.Drops[w.rng.IntN(len(w.Row.Drops))]))
+	w.Koalas = append(w.Koalas, k)
 	w.emit(Wobble, 0)
 }
 
@@ -225,6 +245,51 @@ func newKoala(d config.Drop) Koala {
 	h := d.Height * config.SubPx
 	return Koala{State: Wobbling, X: StationX(d.Station), H: h, h0: h, Target: d.Station, Timer: config.WobbleTicks}
 }
+
+// catchAt is a catch safe play will make: in how many ticks, and where the
+// sheet's middle has to be, in fixed point.
+type catchAt struct{ tick, x int }
+
+// safeCatches adds the catches safe play makes of k from now on: each a
+// safe bounce right, station by station until the tray.
+func (w *World) safeCatches(k *Koala, out []catchAt) []catchAt {
+	station, ticks, ok := w.Landing(k)
+	if !ok || station < 0 {
+		return out
+	}
+	for ; station < w.Row.UteStation; station++ {
+		out = append(out, catchAt{ticks, SafeSheetX(station)})
+		ticks += w.Row.BounceTicks
+	}
+	return out
+}
+
+// fair reports whether rangers at Normal's speed, playing safe, could
+// catch k as well as every koala already out (DESIGN §5): each of k's
+// catches must be reachable from, and reach, every other planned catch.
+// rangers reports whether they can get to k's first catch from where they
+// stand now; drop holds a koala back for that only up to config.DropWait,
+// so walking away can't stop the game.
+func (w *World) fair(k *Koala) (koalas, rangers bool) {
+	others := w.catches[:0]
+	for i := range w.Koalas {
+		others = w.safeCatches(&w.Koalas[i], others)
+	}
+	w.catches = others
+	speed := w.speed(config.RangerReach)
+	reach := func(a, b catchAt) bool { return abs(a.x-b.x) <= speed*abs(a.tick-b.tick) }
+	mine := w.safeCatches(k, nil)
+	for _, a := range mine {
+		for _, b := range others {
+			if !reach(a, b) {
+				return false, false
+			}
+		}
+	}
+	return true, len(mine) == 0 || reach(catchAt{0, w.Sheet}, mine[0])
+}
+
+func abs(n int) int { return max(n, -n) }
 
 // step moves one koala on a tick.
 func (w *World) step(k *Koala) {

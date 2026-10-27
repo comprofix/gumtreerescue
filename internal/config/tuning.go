@@ -44,7 +44,8 @@ var ZoneSteps = [5]int{-2, -1, 0, 1, 2}
 
 // RangerReach is how far the rangers can move in one bounce on Normal, in
 // hundredths of a step: just over 2 steps, so a sharp slip can be caught
-// with a quick reaction (DESIGN §5).
+// with a quick reaction (DESIGN §5). The drop scheduler plans for it on
+// every skill, so skills change only help.
 const RangerReach = 220
 
 // RangerSide is how far each ranger reaches past the end of the sheet, in
@@ -70,6 +71,9 @@ const (
 	LevelTicks   = 2 * TPS       // the pause before a level starts
 	FirstDrop    = TPS / 2       // after that pause, until the first drop
 	WobbleTicks  = TPS / 2       // a koala wobbles at its drop point before it falls
+	DropRetry    = TPS / 10      // a drop held back by the scheduler tries again after this
+	DropJitter   = TPS / 2       // up to this much added to a level's gap at random
+	DropWait     = 2 * TPS       // a drop waits no longer than this for the rangers to come back
 	KoalaLevel   = 10            // koalas rescued to finish a level
 	GameOverHold = 2 * TPS       // the finished game stays on screen
 )

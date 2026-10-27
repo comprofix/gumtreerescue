@@ -50,9 +50,7 @@ func botKey(w *world.World) []ebiten.Key {
 	if k, ok := next(w); ok {
 		station = k.Target
 	}
-	middle := (config.ZoneSharp + config.ZoneSafe + config.ZoneCentre + config.ZoneSafe/2 - config.SheetWidth/2) * config.SubPx
-	want := world.StationX(station) - middle
-	switch d := want - w.Sheet; {
+	switch d := world.SafeSheetX(station) - w.Sheet; {
 	case d > w.RangerSpeed():
 		return []ebiten.Key{ebiten.KeyArrowRight}
 	case d < -w.RangerSpeed():

@@ -395,11 +395,78 @@ func TestSkills(t *testing.T) {
 			t.Errorf("%s: lives %d, want %d", sk.Name, w.Session.Lives, sk.Lives)
 		}
 		if w.RangerSpeed() < w.speed(config.RangerReach) {
-			t.Errorf("%s: rangers slower than Normal's", sk.Name)
+			t.Errorf("%s: rangers slower than the scheduler plans for", sk.Name)
 		}
 	}
 	easy := New(session.New(config.Skills[0], 5), 1, rand.New(rand.NewPCG(1, 2)))
 	if easy.RangerSpeed() <= newWorld(t).RangerSpeed() {
 		t.Error("Easy's rangers are no quicker than Normal's")
+	}
+}
+
+// TestFairHoldsDrops checks the scheduler won't drop a koala that lands
+// when another, far off, is due on the sheet, and will when they land
+// together.
+func TestFairHoldsDrops(t *testing.T) {
+	w := newWorld(t)
+	w.Waiting = 0
+	d := w.Row.Drops[0]
+	k := newKoala(d)
+	_, ticks, _ := w.Landing(&k)
+	for _, c := range []struct {
+		station int
+		want    bool
+	}{{0, true}, {2, false}} {
+		other := Koala{State: Arcing, Target: c.station, t: w.Row.BounceTicks - ticks}
+		w.Koalas = []Koala{other}
+		w.Sheet = SafeSheetX(d.Station)
+		if got, _ := w.fair(&k); got != c.want {
+			t.Errorf("another koala landing on station %d with it: fair %v, want %v", c.station, got, c.want)
+		}
+	}
+	// Rangers far off hold a drop back, but only for DropWait.
+	w.Koalas = nil
+	_, w.Sheet = w.SheetRange()
+	if koalas, rangers := w.fair(&k); !koalas || rangers {
+		t.Errorf("rangers out of reach: fair %v, %v; want true, false", koalas, rangers)
+	}
+	w.Waiting, w.nextDrop = 1, 1
+	for range config.DropWait {
+		if has(w.Update(Input{}), Wobble) {
+			t.Fatal("dropped with the rangers out of reach")
+		}
+	}
+	run(t, w, func() Input { return Input{} }, 2*config.DropRetry, func(es []Event) bool { return has(es, Wobble) })
+}
+
+// perfectBot heads the sheet to the next catch safe play makes, or with
+// none, to the first drop point.
+func perfectBot(w *World) Input {
+	best := catchAt{tick: -1, x: SafeSheetX(w.Row.Drops[0].Station)}
+	for i := range w.Koalas {
+		for _, c := range w.safeCatches(&w.Koalas[i], nil) {
+			if best.tick < 0 || c.tick < best.tick {
+				best = c
+			}
+		}
+	}
+	return Input{Aim: true, Target: best.x}
+}
+
+// TestSchedulerIsFair plays many seeds through the table and into the
+// endless levels with a perfect safe player at Normal: the scheduler must
+// never drop a koala it can't catch (DESIGN §5, PLAN §4).
+func TestSchedulerIsFair(t *testing.T) {
+	const seeds, levels = 100, 12
+	for seed := range uint64(seeds) {
+		w := New(session.New(normal, normal.Lives), 1, rand.New(rand.NewPCG(seed, 99)))
+		for tick := 0; w.Level <= levels; tick++ {
+			if tick > 10000*levels {
+				t.Fatalf("seed %d: stuck on level %d", seed, w.Level)
+			}
+			if es := w.Update(perfectBot(w)); has(es, Missed) {
+				t.Fatalf("seed %d: the perfect player missed on level %d at tick %d: sheet %d, koalas %+v", seed, w.Level, tick, w.Sheet, w.Koalas)
+			}
+		}
 	}
 }
