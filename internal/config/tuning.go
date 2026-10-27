@@ -78,10 +78,12 @@ const (
 	GameOverHold = 2 * TPS       // the finished game stays on screen
 )
 
-// Points (DESIGN §5).
+// Points and lives (DESIGN §5).
 const (
-	SafePoints   = 10  // a safe-right bounce, zone 4
-	SharpPoints  = 20  // a sharp-right bounce, zone 5
-	RescuePoints = 100 // a koala in the tray
-	CleanBonus   = 500 // a level with no misses
+	SafePoints   = 10    // a safe-right bounce, zone 4
+	SharpPoints  = 20    // a sharp-right bounce, zone 5
+	RescuePoints = 100   // a koala in the tray
+	CleanBonus   = 500   // a level with no misses
+	ExtraLife    = 5_000 // an extra life at this score, and every this many after
+	MaxLives     = 5     // extra lives stop here
 )

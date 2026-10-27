@@ -386,6 +386,31 @@ func TestEndless(t *testing.T) {
 	}
 }
 
+// TestExtraLives checks a life at every ExtraLife points, up to the cap,
+// with the threshold moving on past it (DESIGN §5).
+func TestExtraLives(t *testing.T) {
+	w := newWorld(t)
+	w.Session.Score = config.ExtraLife - 10
+	w.score(10)
+	if w.Session.Lives != normal.Lives+1 || w.Gained != 1 || !has(w.events, ExtraLife) {
+		t.Fatalf("at %d: lives %d gained %d", w.Session.Score, w.Session.Lives, w.Gained)
+	}
+	w.score(10)
+	if w.Session.Lives != normal.Lives+1 {
+		t.Errorf("a second life just past the threshold: %d", w.Session.Lives)
+	}
+	w.Session.Lives = config.MaxLives
+	w.score(config.ExtraLife)
+	if w.Session.Lives != config.MaxLives || w.Gained != 1 {
+		t.Errorf("past the cap: lives %d gained %d", w.Session.Lives, w.Gained)
+	}
+	w.Session.Lives = 1
+	w.score(config.ExtraLife)
+	if w.Session.Lives != 2 {
+		t.Errorf("after the cap, the next threshold gave lives %d, want 2", w.Session.Lives)
+	}
+}
+
 // TestSkills checks the skills start with their own lives and ranger speed
 // and Easy's rangers are quicker (DESIGN §5).
 func TestSkills(t *testing.T) {

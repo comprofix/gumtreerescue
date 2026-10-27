@@ -62,6 +62,7 @@ const (
 	Bonked                      // a koala hit the headboard
 	Missed                      // a koala hit the ground: a life lost
 	Grabbed                     // a koala bounced into the tree and grabbed it
+	ExtraLife                   // the score passed an extra life
 	LevelDone                   // the tenth koala of the level is in the tray
 	LevelStart                  // the next level's koalas start dropping
 	GameOver                    // the last life was lost
@@ -93,6 +94,7 @@ type World struct {
 	Waiting int // koalas in the tree waiting to drop
 	Rescued int // koalas in the tray this level
 	Misses  int // misses this level
+	Gained  int // extra lives this level
 	Over    bool
 
 	// Starting counts down the pause before the level's koalas drop;
@@ -101,6 +103,7 @@ type World struct {
 
 	nextDrop int // ticks until the next drop
 	waited   int // how long the due drop has been held back
+	nextLife int // the score that gives the next extra life
 	rng      *rand.Rand
 	events   []Event
 	catches  []catchAt // reused by fair
@@ -110,7 +113,7 @@ type World struct {
 // skill.
 func New(s *session.Session, level int, rng *rand.Rand) *World {
 	s.Lives = s.Skill.Lives
-	w := &World{Session: s, rng: rng}
+	w := &World{Session: s, rng: rng, nextLife: config.ExtraLife}
 	w.startLevel(max(level, 1))
 	return w
 }
@@ -120,7 +123,7 @@ func New(s *session.Session, level int, rng *rand.Rand) *World {
 func (w *World) startLevel(n int) {
 	w.Level, w.Row = n, config.LevelAt(n)
 	w.Koalas = w.Koalas[:0]
-	w.Waiting, w.Rescued, w.Misses = config.KoalaLevel, 0, 0
+	w.Waiting, w.Rescued, w.Misses, w.Gained = config.KoalaLevel, 0, 0, 0
 	w.Sheet = StationX(w.Row.Drops[0].Station)
 	w.Starting, w.Ending = config.LevelTicks, 0
 	w.nextDrop, w.waited = config.FirstDrop, 0
@@ -191,7 +194,7 @@ func (w *World) Update(in Input) []Event {
 	w.drop()
 	if w.Rescued >= config.KoalaLevel {
 		if w.Misses == 0 {
-			w.Session.AddScore(config.CleanBonus)
+			w.score(config.CleanBonus)
 		}
 		w.Ending = config.LevelTicks
 		w.emit(LevelDone, 0)
@@ -200,6 +203,21 @@ func (w *World) Update(in Input) []Event {
 }
 
 func (w *World) emit(k EventKind, zone int) { w.events = append(w.events, Event{k, zone}) }
+
+// score adds points, and an extra life at every config.ExtraLife points
+// up to config.MaxLives (DESIGN §5). Past the cap the threshold still
+// moves on.
+func (w *World) score(points int) {
+	w.Session.AddScore(points)
+	for w.Session.Score >= w.nextLife {
+		w.nextLife += config.ExtraLife
+		if w.Session.Lives < config.MaxLives {
+			w.Session.Lives++
+			w.Gained++
+			w.emit(ExtraLife, 0)
+		}
+	}
+}
 
 // moveSheet moves the rangers by the player's input, no faster than their
 // speed, within their range.
@@ -409,7 +427,7 @@ func (w *World) catch(k *Koala) {
 	k.State, k.Target, k.t = Arcing, to, 0
 	k.x0, k.x1 = StationX(from), StationX(to)
 	k.X, k.H = k.x0, 0
-	w.Session.AddScore(bouncePoints(zone, to > w.Row.UteStation))
+	w.score(bouncePoints(zone, to > w.Row.UteStation))
 	w.emit(Bounced, zone)
 }
 
@@ -448,7 +466,7 @@ func (w *World) ZoneAt(x int) (zone int, ok bool) {
 // rescue counts a koala landed in the tray.
 func (w *World) rescue() {
 	w.Rescued++
-	w.Session.AddScore(config.RescuePoints)
+	w.score(config.RescuePoints)
 	w.emit(Rescued, 0)
 }
 
