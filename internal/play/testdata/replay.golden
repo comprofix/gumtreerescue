@@ -1,5 +1,5 @@
-level 3  score 4800  lives 3  over false
-waiting 0  rescued 9  misses 0  sheet 47316
+level 3  score 4670  lives 3  over false
+waiting 1  rescued 8  misses 0  sheet 62316
 koala 0: state 6 x 96256 h 0 target 3 missed false bonked false
 koala 1: state 6 x 96256 h 0 target 3 missed false bonked false
 koala 2: state 6 x 96256 h 0 target 3 missed false bonked false
@@ -8,5 +8,4 @@ koala 4: state 6 x 96256 h 0 target 3 missed false bonked false
 koala 5: state 6 x 96256 h 0 target 3 missed false bonked false
 koala 6: state 6 x 96256 h 0 target 3 missed false bonked false
 koala 7: state 6 x 96256 h 0 target 3 missed false bonked false
-koala 8: state 6 x 96256 h 0 target 3 missed false bonked false
-koala 9: state 2 x 86926 h 38096 target 3 missed false bonked false
+koala 8: state 2 x 80099 h 25581 target 3 missed false bonked false

@@ -234,7 +234,7 @@ func TestLevelDone(t *testing.T) {
 	if want := config.SafePoints + config.RescuePoints + config.CleanBonus; w.Session.Score != want {
 		t.Errorf("score %d, want %d with the clean bonus", w.Session.Score, want)
 	}
-	run(t, w, func() Input { return Input{} }, config.LevelTicks+1, func([]Event) bool { return w.Level == 2 })
+	run(t, w, func() Input { return Input{} }, config.EndTicks+1, func([]Event) bool { return w.Level == 2 })
 	if w.Waiting != config.KoalaLevel || w.Rescued != 0 || len(w.Koalas) != 0 || w.Starting == 0 {
 		t.Errorf("level 2 starts with waiting %d rescued %d koalas %d starting %d", w.Waiting, w.Rescued, len(w.Koalas), w.Starting)
 	}

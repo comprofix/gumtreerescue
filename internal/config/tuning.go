@@ -68,8 +68,9 @@ const (
 	CrawlSubPx   = 3 * SubPx / 4 // crawling back to the tree, per tick
 	ClimbTicks   = 2 * TPS       // climbing back up to wait again
 	BonkedTicks  = 2 * TPS       // dazed in the tray after a headboard bonk
-	LevelTicks   = 2 * TPS       // the pause before a level starts
-	FirstDrop    = TPS / 2       // after that pause, until the first drop
+	LevelTicks   = 5 * TPS / 2   // the intro card, while the ute drives in
+	EndTicks     = 4 * TPS       // the ute drives off, and the level's tally
+	FirstDrop    = TPS / 2       // after the intro, until the first drop
 	WobbleTicks  = TPS / 2       // a koala wobbles at its drop point before it falls
 	DropRetry    = TPS / 10      // a drop held back by the scheduler tries again after this
 	DropJitter   = TPS / 2       // up to this much added to a level's gap at random
@@ -77,6 +78,10 @@ const (
 	KoalaLevel   = 10            // koalas rescued to finish a level
 	GameOverHold = 2 * TPS       // the finished game stays on screen
 )
+
+// UteDrivePx is how far the ute drives in at a level's start and off at its
+// end, in field pixels: from wholly off the right edge.
+const UteDrivePx = 420
 
 // Points and lives (DESIGN §5).
 const (

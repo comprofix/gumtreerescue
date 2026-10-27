@@ -57,8 +57,9 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	drawBackdrop(pn)
 	drawTree(pn, w.Row.Drops)
 	drawWaiting(pn, w.Waiting)
-	drawUte(pn, px(w.UteX()))
-	drawTray(pn, w)
+	ute := px(w.UteX()) + uteShift(w)
+	drawUte(pn, ute)
+	drawTray(pn, w, ute)
 	late := w.Session.Skill.LateMarker
 	for i := range w.Koalas {
 		k := &w.Koalas[i]
@@ -85,14 +86,42 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	drawHUD(ctx, dst, w)
 	switch {
 	case w.Starting > 0:
-		banner(ctx, dst, fmt.Sprintf("LEVEL %d", w.Level), "")
-	case w.Ending > 0:
-		sub := ""
-		if w.Misses == 0 {
-			sub = fmt.Sprintf("NO MISSES  +%d", config.CleanBonus)
-		}
-		banner(ctx, dst, "WELL DONE!", sub)
+		banner(ctx, dst, fmt.Sprintf("LEVEL %d", w.Level), w.Row.Intro)
+	case w.Ending > 0 && w.Ending <= config.EndTicks/2:
+		banner(ctx, dst, "WELL DONE!", tally(w)...)
 	}
+}
+
+// uteShift is how far right of its station the ute is drawn: it drives in
+// under the intro card, and off with the tray full before the tally
+// (DESIGN §7).
+func uteShift(w *world.World) float64 {
+	var f float64 // 0 parked, 1 off the screen
+	half := config.EndTicks / 2
+	switch {
+	case w.Starting > 0:
+		f = float64(w.Starting) / config.LevelTicks
+	case w.Ending > half:
+		f = 1 - float64(w.Ending-half)/float64(half)
+	case w.Ending > 0:
+		f = 1
+	}
+	return config.UteDrivePx * f * f
+}
+
+// tally is the level-end tally's lines: the rescues, the no-miss bonus or
+// the misses, and any extra life (DESIGN §7).
+func tally(w *world.World) []string {
+	lines := []string{fmt.Sprintf("KOALAS RESCUED  %d", w.Rescued)}
+	if w.Misses == 0 {
+		lines = append(lines, fmt.Sprintf("NO MISSES  +%d", config.CleanBonus))
+	} else {
+		lines = append(lines, fmt.Sprintf("MISSES  %d", w.Misses))
+	}
+	if w.Gained > 0 {
+		lines = append(lines, "EXTRA LIFE!")
+	}
+	return lines
 }
 
 // drawBackdrop is the country bush: sky, clouds, ranges, paddocks, a fence
@@ -188,10 +217,9 @@ func drawUte(p pen, x float64) {
 	}
 }
 
-// drawTray is the ute's tray with the rescued koalas in it, drawn after
-// the ute so they sit inside its low sides.
-func drawTray(p pen, w *world.World) {
-	x := px(w.UteX())
+// drawTray is the ute's tray, its station at x, with the rescued koalas in
+// it, drawn after the ute so they sit inside its low sides.
+func drawTray(p pen, w *world.World, x float64) {
 	deck := float64(config.SheetY)
 	left := x - config.TrayBack
 	n := 0
@@ -278,13 +306,15 @@ func drawHUD(ctx *scene.Context, dst *ebiten.Image, w *world.World) {
 	f.DrawShadowed(dst, lives, dst.Bounds().Dx()-margin-f.Width(lives), y, sc.Text, sc.Shadow)
 }
 
-// banner is a large message across the middle of the field, with an
-// optional line under it.
-func banner(ctx *scene.Context, dst *ebiten.Image, msg, sub string) {
+// banner is a large message across the middle of the field, with any lines
+// under it.
+func banner(ctx *scene.Context, dst *ebiten.Image, msg string, lines ...string) {
 	sc, f := ctx.Scheme, ctx.Fonts
 	y := dst.Bounds().Dy()/2 - f.Large.LineHeight()
 	ui.TextCentred(dst, f.Large, msg, y, sc.Title, sc.Shadow)
-	if sub != "" {
-		ui.TextCentred(dst, f.Small, sub, y+2*f.Large.LineHeight(), sc.Text, sc.Shadow)
+	y += 2 * f.Large.LineHeight()
+	for _, l := range lines {
+		ui.TextCentred(dst, f.Small, l, y, sc.Text, sc.Shadow)
+		y += f.Small.LineHeight() * 3 / 2
 	}
 }

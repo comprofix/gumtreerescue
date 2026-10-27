@@ -97,8 +97,8 @@ type World struct {
 	Gained  int // extra lives this level
 	Over    bool
 
-	// Starting counts down the pause before the level's koalas drop;
-	// Ending, the pause after its last rescue.
+	// Starting counts down the intro card before the level's koalas drop;
+	// Ending, the drive-off and tally after its last rescue.
 	Starting, Ending int
 
 	nextDrop int // ticks until the next drop
@@ -196,7 +196,7 @@ func (w *World) Update(in Input) []Event {
 		if w.Misses == 0 {
 			w.score(config.CleanBonus)
 		}
-		w.Ending = config.LevelTicks
+		w.Ending = config.EndTicks
 		w.emit(LevelDone, 0)
 	}
 	return w.events

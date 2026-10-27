@@ -118,5 +118,5 @@ func (g *Ended) Update(ctx *scene.Context) error {
 func (g *Ended) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	g.play.Draw(ctx, dst)
 	scene.Dim(dst, ctx.Scheme.Shadow, 0.5)
-	banner(ctx, dst, "GAME OVER", "")
+	banner(ctx, dst, "GAME OVER")
 }
