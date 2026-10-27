@@ -1,3 +1,12 @@
 level 1  score 0  lives 0  over true
-waiting 9  rescued 0  misses 3  sheet 81408
-koala 0: state 3 x 34816 h -7680 target 0 missed true bonked false joey false
+waiting 8  rescued 0  misses 3  sheet 81408
+waiting 3: spot 3 joey false
+waiting 4: spot 4 joey false
+waiting 5: spot 5 joey false
+waiting 6: spot 6 joey false
+waiting 7: spot 7 joey false
+waiting 8: spot 8 joey false
+waiting 9: spot 9 joey false
+waiting 0: spot 1 joey false
+koala 0: id 1 state 5 x 11264 h 24496 target 0 missed true bonked false slipped false joey false baby false
+koala 1: id 2 state 3 x 34816 h -7680 target 0 missed true bonked false slipped false joey false baby false

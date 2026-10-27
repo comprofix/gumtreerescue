@@ -5,10 +5,13 @@
 //
 // Every position is in fixed point (config.SubPx units to a field pixel)
 // and every motion is worked out from the tick it began, never stepped, so
-// bounces land exactly on stations and replays match (PLAN §3).
+// bounces land exactly on stations and replays match (PLAN §3). Koalas get
+// about the tree along paths of straight legs, each taking a whole number
+// of ticks, so they never jump from place to place.
 package world
 
 import (
+	"math"
 	"math/rand/v2"
 
 	"github.com/comprofix/gumtreerescue/internal/config"
@@ -19,52 +22,83 @@ import (
 type State int
 
 const (
-	Wobbling State = iota // on its branch, about to drop
-	Falling               // dropped from a branch, or bonked and dropping into the tray
-	Arcing                // bounced, on its way to a station
-	Dazed                 // missed: sitting dazed on the ground
-	Crawling              // crawling back to the tree
-	Climbing              // climbing back up the tree to wait again
-	InTray                // rescued
+	Wobbling  State = iota // on its branch, about to drop
+	Falling                // dropped from a branch, bonked, or slipped from the tree
+	Arcing                 // bounced, on its way to a station
+	Dazed                  // sitting dazed on the ground
+	Crawling               // crawling back to the tree
+	Climbing               // climbing the tree to its spot, or a lost joey to its perch
+	InTray                 // rescued
+	Walking                // leaving its spot for its drop point
+	Searching              // a lost joey looking for its mother
+	Lost                   // a lost joey waiting for its mother to come back to the tree
+	Finding                // a lost joey climbing to its mother
 )
 
-// Koala is one koala out of the tree.
+// Koala is one koala out of its spot in the tree, or a lost joey.
 type Koala struct {
 	State State
 	// X and H are where it is: across the field, and its height above the
 	// sheet (below it, negative), in fixed point.
 	X, H int
-	// Target is the station it will land on: below it while it wobbles and
-	// falls, where an arc ends while it arcs.
+	// Target is the station it will land on: below it while it walks,
+	// wobbles and falls, where an arc ends while it arcs.
 	Target int
 	// Missed is set once it has passed the sheet uncaught; it falls on to
 	// the ground.
 	Missed bool
 	// Bonked is set once it has hit the ute's headboard (DESIGN §5).
 	Bonked bool
-	// Timer counts down while it wobbles, is dazed, climbs or is dazed in
-	// the tray.
+	// Slipped is set once it has slipped from the tree; it falls to the
+	// ground with no life lost (DESIGN §5).
+	Slipped bool
+	// Timer counts down while it wobbles, is dazed, is dazed in the tray,
+	// or as a lost joey, searches.
 	Timer int
 	// Joey is set for a mother with a joey on her back: her bounces and
 	// rescue score double (DESIGN §6).
 	Joey bool
+	// ID tells a level's koalas apart. A lost joey has its mother's.
+	ID int
+	// Baby is set for a lost joey, off its mother's back (DESIGN §6).
+	Baby bool
+	// Spot is where it is climbing to: an index into config.Spots, or for a
+	// lost joey into config.JoeyPerches.
+	Spot int
 
-	x0, x1 int // an arc's start and end, across
-	h0     int // a fall's starting height
-	t      int // ticks into the current fall or arc
+	x0, x1 int      // an arc's start and end, across
+	h0     int      // a fall's starting height
+	t      int      // ticks into the current fall, arc or leg of its path
+	path   [4]point // where it walks or climbs: from path[0] to path[3]
+	leg    int      // the leg of path it is on, from path[leg]
+	gone   bool     // back in its spot, or on its mother's back
+}
+
+// point is a place on the field, in fixed point.
+type point struct{ X, H int }
+
+// Waiting is a koala sitting in its spot in the tree.
+type Waiting struct {
+	ID   int
+	Spot int  // an index into config.Spots
+	Joey bool // a joey on her back
 }
 
 // EventKind is something that happened during a tick.
 type EventKind int
 
 const (
-	Wobble     EventKind = iota // a koala started to wobble on its branch
+	Leaving    EventKind = iota // a koala left its spot for its drop point
+	Wobble                      // a koala started to wobble on its branch
 	Dropped                     // a koala dropped from a branch
 	Bounced                     // caught on the sheet; Zone says where
 	Rescued                     // a koala landed in the tray
 	Bonked                      // a koala hit the headboard
 	Missed                      // a koala hit the ground: a life lost
 	Grabbed                     // a koala bounced into the tree and grabbed it
+	Slipped                     // a koala bounced into the tree and slipped
+	JoeyLost                    // a joey tumbled off its mother on the ground
+	JoeyFound                   // a lost joey climbed back on its mother
 	ExtraLife                   // the score passed an extra life
 	LevelDone                   // the tenth koala of the level is in the tray
 	LevelStart                  // the next level's koalas start dropping
@@ -99,17 +133,21 @@ type World struct {
 	Gained  int // extra lives this level
 	Over    bool
 
-	// Tree is the koalas waiting in the tree, the next to drop first: true
-	// for one carrying a joey. Koalas that climb back join the end.
-	Tree []bool
+	// Tree is the koalas sitting in their spots, the next to drop first.
+	// Koalas that climb back join the end.
+	Tree []Waiting
 
 	// Starting counts down the intro card before the level's koalas drop;
-	// Ending, the drive-off and tally after its last rescue.
+	// Ending, a ranger carrying any lost joeys to the ute, the drive-off and
+	// the tally after its last rescue.
 	Starting, Ending int
 
-	nextDrop int // ticks until the next drop
-	waited   int // how long the due drop has been held back
-	nextLife int // the score that gives the next extra life
+	nextDrop int     // ticks until the next koala is due to wobble
+	point    int     // the next koala's drop point, in Row.Drops
+	retry    int     // ticks until a held-back drop tries again
+	waited   int     // how long the due drop has been held back
+	nextLife int     // the score that gives the next extra life
+	tumbled  []Koala // joeys lost this tick, joining Koalas after it
 	rng      *rand.Rand
 	events   []Event
 	catches  []catchAt // reused by fair
@@ -124,22 +162,26 @@ func New(s *session.Session, level int, rng *rand.Rand) *World {
 	return w
 }
 
-// startLevel fills the tree with the level's koalas, the seeded RNG picking
+// startLevel sits the level's koalas in their spots, the seeded RNG picking
 // which carry joeys, and puts the rangers under the first drop point
 // (DESIGN §5, §6).
 func (w *World) startLevel(n int) {
 	w.Level, w.Row = n, config.LevelAt(n)
 	w.Koalas = w.Koalas[:0]
-	w.Tree = make([]bool, config.KoalaLevel)
+	w.Tree = make([]Waiting, config.KoalaLevel)
+	for i := range w.Tree {
+		w.Tree[i] = Waiting{ID: i, Spot: i}
+	}
 	if w.Row.Joeys > 0 {
 		for _, i := range w.rng.Perm(config.KoalaLevel)[:w.Row.Joeys] {
-			w.Tree[i] = true
+			w.Tree[i].Joey = true
 		}
 	}
 	w.Rescued, w.Misses, w.Gained = 0, 0, 0
 	w.Sheet = StationX(w.Row.Drops[0].Station)
 	w.Starting, w.Ending = config.LevelTicks, 0
-	w.nextDrop, w.waited = config.FirstDrop, 0
+	w.nextDrop, w.retry, w.waited = config.FirstDrop, 0, 0
+	w.point = w.rng.IntN(len(w.Row.Drops))
 }
 
 // StationX is station n's place across the field, in fixed point. Stations
@@ -153,6 +195,11 @@ func StationX(n int) int {
 func SafeSheetX(n int) int {
 	middle := config.ZoneSharp + config.ZoneSafe + config.ZoneCentre + config.ZoneSafe/2 - config.SheetWidth/2
 	return StationX(n) - middle*config.SubPx
+}
+
+// SpotAt is where a koala's feet are in spot s, in fixed point.
+func SpotAt(s config.Spot) (x, h int) {
+	return s.X * config.SubPx, (config.SheetY - s.Y) * config.SubPx
 }
 
 // UteX is where the ute is parked: its station, in fixed point.
@@ -175,6 +222,18 @@ func (w *World) RangerSpeed() int { return w.speed(w.Session.Skill.Reach) }
 
 func (w *World) speed(reach int) int {
 	return reach * config.StepPx * config.SubPx / (100 * w.Row.BounceTicks)
+}
+
+// LostJoeys is how many lost joeys are out of their mothers' reach: at a
+// level's end, a ranger carries them to the ute (DESIGN §6).
+func (w *World) LostJoeys() int {
+	n := 0
+	for i := range w.Koalas {
+		if w.Koalas[i].Baby {
+			n++
+		}
+	}
+	return n
 }
 
 // Update advances the game one tick and returns what happened. The slice
@@ -203,13 +262,17 @@ func (w *World) Update(in Input) []Event {
 			return w.events
 		}
 	}
-	w.Koalas = removeClimbed(w.Koalas, &w.Tree)
+	w.Koalas = append(removeGone(w.Koalas), w.tumbled...)
+	w.tumbled = w.tumbled[:0]
 	w.drop()
 	if w.Rescued >= config.KoalaLevel {
 		if w.Misses == 0 {
 			w.score(config.CleanBonus)
 		}
 		w.Ending = config.EndTicks
+		if w.LostJoeys() > 0 {
+			w.Ending += config.CarryTicks
+		}
 		w.emit(LevelDone, 0)
 	}
 	return w.events
@@ -246,36 +309,119 @@ func (w *World) moveSheet(in Input) {
 	w.Sheet = min(max(w.Sheet, lo), hi)
 }
 
-// drop sends the next koala out to wobble on its branch when it is due and
-// the scheduler finds it fair (PLAN §3); otherwise it tries again shortly.
+// drop sends the koala at the front of the tree off to its drop point, in
+// time to start its wobble when it is due, if the scheduler finds it fair
+// (PLAN §3); otherwise it tries again shortly. It waits while a lost joey
+// is climbing to that koala (DESIGN §6).
 func (w *World) drop() {
-	if len(w.Tree) == 0 {
+	w.nextDrop = max(w.nextDrop-1, 0)
+	w.retry = max(w.retry-1, 0)
+	if len(w.Tree) == 0 || w.retry > 0 || w.finding(w.Tree[0].ID) {
 		return
 	}
-	if w.nextDrop--; w.nextDrop > 0 {
+	k := walker(w.Tree[0], w.Row.Drops[w.point])
+	walk := k.pathLeft()
+	if w.nextDrop > walk {
 		return
 	}
-	d := w.Row.Drops[w.rng.IntN(len(w.Row.Drops))]
-	k := newKoala(d)
-	k.Joey = w.Tree[0]
 	koalas, rangers := w.fair(&k)
 	if !koalas || !rangers && w.waited < config.DropWait {
-		w.nextDrop = config.DropRetry
+		w.retry = config.DropRetry
 		if koalas {
 			w.waited += config.DropRetry
 		}
 		return
 	}
-	w.nextDrop, w.waited = w.Row.GapTicks+w.rng.IntN(config.DropJitter+1), 0
+	w.nextDrop, w.waited = walk+w.Row.GapTicks+w.rng.IntN(config.DropJitter+1), 0
+	w.point = w.rng.IntN(len(w.Row.Drops))
 	w.Tree = w.Tree[1:]
 	w.Koalas = append(w.Koalas, k)
-	w.emit(Wobble, 0)
+	w.emit(Leaving, 0)
+}
+
+// finding reports whether a lost joey is climbing to the koala id.
+func (w *World) finding(id int) bool {
+	for i := range w.Koalas {
+		if k := &w.Koalas[i]; k.Baby && k.State == Finding && k.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // newKoala is a koala on drop point d, starting its wobble.
 func newKoala(d config.Drop) Koala {
 	h := d.Height * config.SubPx
 	return Koala{State: Wobbling, X: StationX(d.Station), H: h, h0: h, Target: d.Station, Timer: config.WobbleTicks}
+}
+
+// walker is the waiting koala s setting off for drop point d: across to
+// the trunk, along it to the branch and out along the branch to its tip
+// (DESIGN §5).
+func walker(s Waiting, d config.Drop) Koala {
+	k := newKoala(d)
+	k.ID, k.Joey = s.ID, s.Joey
+	tip := point{k.X, k.H}
+	x, h := SpotAt(config.Spots[s.Spot])
+	k.setPath(point{x, h}, tip.H-config.BranchRise*config.SubPx, tip)
+	if k.pathLeft() > 0 {
+		k.State = Walking
+	} else {
+		k.X, k.H = tip.X, tip.H
+	}
+	return k
+}
+
+// setPath starts k on a path from where it is: across to the trunk, up or
+// down it to height via, and out to the end. Already at the end, it stays.
+func (k *Koala) setPath(from point, via int, end point) {
+	trunk := config.ClimbX * config.SubPx
+	k.path = [4]point{from, {trunk, from.H}, {trunk, via}, end}
+	if from == end {
+		k.path = [4]point{end, end, end, end}
+	}
+	k.leg, k.t = 0, 0
+	k.X, k.H = from.X, from.H
+}
+
+// climb moves k a tick along its path, and reports whether it has come to
+// the end.
+func (k *Koala) climb() bool {
+	k.t++
+	for ; k.leg+1 < len(k.path); k.leg++ {
+		a, b := k.path[k.leg], k.path[k.leg+1]
+		n := legTicks(a, b)
+		if k.t < n {
+			k.X, k.H = a.X+(b.X-a.X)*k.t/n, a.H+(b.H-a.H)*k.t/n
+			return false
+		}
+		k.t -= n
+	}
+	end := k.path[len(k.path)-1]
+	k.X, k.H = end.X, end.H
+	return true
+}
+
+// pathLeft is how many ticks k has left on its path.
+func (k *Koala) pathLeft() int {
+	left := -k.t
+	for i := k.leg; i+1 < len(k.path); i++ {
+		left += legTicks(k.path[i], k.path[i+1])
+	}
+	return max(left, 0)
+}
+
+// legTicks is how many ticks a leg from a to b takes at config.ClimbSubPx
+// a tick: the fewest that cover it, worked out in whole numbers so every
+// machine agrees.
+func legTicks(a, b point) int {
+	dx, dh := b.X-a.X, b.H-a.H
+	d2 := dx*dx + dh*dh
+	n := int(math.Sqrt(float64(d2))) / config.ClimbSubPx
+	for n*config.ClimbSubPx*n*config.ClimbSubPx < d2 {
+		n++
+	}
+	return n
 }
 
 // catchAt is a catch safe play will make: in how many ticks, and where the
@@ -326,6 +472,11 @@ func abs(n int) int { return max(n, -n) }
 // step moves one koala on a tick.
 func (w *World) step(k *Koala) {
 	switch k.State {
+	case Walking:
+		if k.climb() {
+			k.State, k.Timer = Wobbling, config.WobbleTicks
+			w.emit(Wobble, 0)
+		}
 	case Wobbling:
 		if k.Timer--; k.Timer <= 0 {
 			k.State, k.t = Falling, 0
@@ -346,13 +497,110 @@ func (w *World) step(k *Koala) {
 	case Crawling:
 		if k.X -= config.CrawlSubPx; k.X <= config.TrunkX*config.SubPx {
 			k.X = config.TrunkX * config.SubPx
-			k.State, k.Timer = Climbing, config.ClimbTicks
+			w.climbBack(k)
 		}
 	case Climbing:
-		k.Timer--
+		if k.climb() {
+			w.settle(k)
+		}
+	case Searching:
+		if k.Timer--; k.Timer <= 0 {
+			k.State = Lost
+			w.seek(k)
+		}
+	case Lost:
+		w.seek(k)
+	case Finding:
+		if k.climb() {
+			w.reunite(k)
+		}
 	case InTray:
 		k.Timer = max(k.Timer-1, 0)
 	}
+}
+
+// climbBack starts k up the tree from where it is: a koala to a free spot,
+// a lost joey to a free perch, the seeded RNG picking which (DESIGN §5,
+// §6).
+func (w *World) climbBack(k *Koala) {
+	k.Spot = w.freeSpot(k.Baby)
+	spot := config.Spots[:]
+	if k.Baby {
+		spot = config.JoeyPerches[:]
+	}
+	x, h := SpotAt(spot[k.Spot])
+	k.State = Climbing
+	k.setPath(point{k.X, k.H}, h, point{x, h})
+}
+
+// freeSpot picks a spot no koala sits in or is climbing to, or for a lost
+// joey, a perch no other joey has.
+func (w *World) freeSpot(baby bool) int {
+	n := len(config.Spots)
+	if baby {
+		n = len(config.JoeyPerches)
+	}
+	used := make([]bool, n)
+	if !baby {
+		for _, s := range w.Tree {
+			used[s.Spot] = true
+		}
+	}
+	for i := range w.Koalas {
+		k := &w.Koalas[i]
+		if k.Baby == baby && (k.State == Climbing || baby && (k.State == Searching || k.State == Lost)) {
+			used[k.Spot] = true
+		}
+	}
+	var free []int
+	for i, u := range used {
+		if !u {
+			free = append(free, i)
+		}
+	}
+	if len(free) == 0 {
+		return 0
+	}
+	return free[w.rng.IntN(len(free))]
+}
+
+// settle ends a climb: a koala sits in its spot and joins the back of the
+// queue; a lost joey starts looking for its mother, for a time the seeded
+// RNG picks (DESIGN §6).
+func (w *World) settle(k *Koala) {
+	if k.Baby {
+		k.State, k.Timer = Searching, config.JoeySearch+w.rng.IntN(config.JoeySearchUp+1)
+		return
+	}
+	w.Tree = append(w.Tree, Waiting{ID: k.ID, Spot: k.Spot, Joey: k.Joey})
+	k.gone = true
+}
+
+// seek sends a lost joey that has finished searching to its mother, if she
+// is waiting in the tree; otherwise it waits for her (DESIGN §6).
+func (w *World) seek(k *Koala) {
+	for _, s := range w.Tree {
+		if s.ID == k.ID {
+			x, h := SpotAt(config.Spots[s.Spot])
+			k.State = Finding
+			k.setPath(point{k.X, k.H}, h, point{x, h})
+			return
+		}
+	}
+}
+
+// reunite puts a lost joey back on its mother's back. drop holds her in
+// her spot until it gets there, but if she has gone it climbs to a perch
+// and looks again.
+func (w *World) reunite(k *Koala) {
+	for i := range w.Tree {
+		if w.Tree[i].ID == k.ID {
+			w.Tree[i].Joey, k.gone = true, true
+			w.emit(JoeyFound, 0)
+			return
+		}
+	}
+	w.climbBack(k)
 }
 
 // fallen is how far anything falls in t ticks from rest, in fixed point.
@@ -386,7 +634,7 @@ func (w *World) arcAt(k *Koala) {
 // ground.
 func (w *World) landFall(k *Koala) {
 	switch {
-	case k.Missed:
+	case k.Missed || k.Slipped:
 		w.ground(k)
 	case k.H > 0:
 	case k.Bonked:
@@ -405,10 +653,17 @@ func (w *World) landArc(k *Koala) {
 	case k.Missed:
 		w.ground(k)
 	case k.x1 < k.x0 && k.X <= config.TrunkX*config.SubPx:
-		// Bounced back past the first station: it grabs the tree and
-		// climbs back up (DESIGN §5).
-		k.X, k.State, k.Timer = config.TrunkX*config.SubPx, Climbing, config.ClimbTicks
+		// Bounced back past the first station into the tree: the seeded
+		// RNG decides whether it grabs on where it hit and climbs to a
+		// spot, or slips and falls to the ground (DESIGN §5).
+		k.X = config.TrunkX * config.SubPx
+		if w.rng.IntN(100) < config.SlipChance {
+			k.State, k.Slipped, k.h0, k.t = Falling, true, k.H, 0
+			w.emit(Slipped, 0)
+			return
+		}
 		w.emit(Grabbed, 0)
+		w.climbBack(k)
 	case k.Target > w.Row.UteStation && k.X >= w.HeadboardX()-koalaHalf:
 		// Aimed past the tray: it bonks the headboard and drops into the
 		// tray (DESIGN §5).
@@ -492,13 +747,26 @@ func (w *World) rescue(k *Koala) {
 	w.emit(Rescued, 0)
 }
 
-// ground stops a missed koala on the ground: dazed, and a life lost.
+// ground stops a koala on the ground, dazed. A joey on its back tumbles
+// off, dazed too (DESIGN §6). A koala missed on the sheet costs a life;
+// one that slipped from the tree does not (DESIGN §5).
 func (w *World) ground(k *Koala) {
 	floor := -config.SheetHeight * config.SubPx
 	if k.H > floor {
 		return
 	}
 	k.H, k.State, k.Timer = floor, Dazed, config.DazedTicks
+	if k.Joey {
+		k.Joey = false
+		w.tumbled = append(w.tumbled, Koala{
+			State: Dazed, X: k.X + config.JoeyTumblePx*config.SubPx, H: floor,
+			Timer: config.DazedTicks, ID: k.ID, Baby: true,
+		})
+		w.emit(JoeyLost, 0)
+	}
+	if k.Slipped {
+		return
+	}
 	w.Misses++
 	w.emit(Missed, 0)
 	if w.Session.LoseLife() {
@@ -507,28 +775,27 @@ func (w *World) ground(k *Koala) {
 	}
 }
 
-// removeClimbed takes out the koalas that have climbed back up the tree,
-// adding them to the end of those waiting, a joey still on any mother's
-// back (DESIGN §5).
-func removeClimbed(ks []Koala, tree *[]bool) []Koala {
+// removeGone takes out the koalas back in their spots and the joeys back
+// on their mothers.
+func removeGone(ks []Koala) []Koala {
 	out := ks[:0]
 	for _, k := range ks {
-		if k.State == Climbing && k.Timer <= 0 {
-			*tree = append(*tree, k.Joey)
-			continue
+		if !k.gone {
+			out = append(out, k)
 		}
-		out = append(out, k)
 	}
 	return out
 }
 
 // Landing is where and in how many ticks k next comes down to the sheet or
 // the tray, for the landing marker; ok is false once it has nowhere to
-// land (missed, on the ground, in the tray).
+// land (missed, slipped, on the ground, in the tree, in the tray).
 func (w *World) Landing(k *Koala) (station, ticks int, ok bool) {
 	switch {
-	case k.Missed:
+	case k.Missed || k.Slipped || k.Baby:
 		return 0, 0, false
+	case k.State == Walking:
+		return k.Target, k.pathLeft() + config.WobbleTicks + w.fallTicks(k.h0), true
 	case k.State == Wobbling:
 		return k.Target, k.Timer + w.fallTicks(k.h0), true
 	case k.State == Arcing:

@@ -68,18 +68,23 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 			drawMarker(pn, px(world.StationX(station)))
 		}
 	}
+	carried := w.Ending > 0 && w.Ending <= config.EndTicks // lost joeys are in the tray
 	for i := range w.Koalas {
-		switch k := &w.Koalas[i]; k.State {
-		case world.Wobbling:
+		switch k := &w.Koalas[i]; {
+		case k.Baby:
+			if !carried {
+				drawJoey(pn, px(k.X), koalaY(k))
+			}
+		case k.State == world.Wobbling:
 			drawKoala(pn, px(k.X)+1.5*math.Sin(float64(k.Timer)*0.9), koalaY(k), false, k.Joey)
-		case world.Falling, world.Arcing, world.Climbing:
+		case k.State == world.Walking || k.State == world.Falling || k.State == world.Arcing || k.State == world.Climbing:
 			drawKoala(pn, px(k.X), koalaY(k), false, k.Joey)
 		}
 	}
 	drawRangers(pn, px(w.Sheet))
 	// Koalas on the ground pass in front of the rangers (DESIGN §5).
 	for i := range w.Koalas {
-		if k := &w.Koalas[i]; k.State == world.Dazed || k.State == world.Crawling {
+		if k := &w.Koalas[i]; !k.Baby && (k.State == world.Dazed || k.State == world.Crawling) {
 			drawKoala(pn, px(k.X), koalaY(k), k.State == world.Crawling, k.Joey)
 		}
 	}
@@ -101,6 +106,7 @@ func uteShift(w *world.World) float64 {
 	switch {
 	case w.Starting > 0:
 		f = float64(w.Starting) / config.LevelTicks
+	case w.Ending > config.EndTicks: // a ranger carries lost joeys to it
 	case w.Ending > half:
 		f = 1 - float64(w.Ending-half)/float64(half)
 	case w.Ending > 0:
@@ -180,16 +186,12 @@ func drawTree(p pen, drops []config.Drop) {
 	}
 }
 
-// waitSpots are where waiting koalas sit in the tree: on branches, in the
-// forks, holding the trunk and at its foot (DESIGN §5), as their feet.
-var waitSpots = [config.KoalaLevel][2]float64{
-	{96, 118}, {10, 88}, {40, 64}, {56, 150}, {24, 200},
-	{58, 230}, {20, 262}, {8, 330}, {130, 64}, {70, 100},
-}
-
-func drawWaiting(p pen, tree []bool) {
-	for i := range min(len(tree), len(waitSpots)) {
-		drawKoala(p, waitSpots[i][0], waitSpots[i][1], false, tree[i])
+// drawWaiting draws the koalas waiting in the tree, each in its own spot
+// (DESIGN §5).
+func drawWaiting(p pen, tree []world.Waiting) {
+	for _, s := range tree {
+		at := config.Spots[s.Spot]
+		drawKoala(p, float64(at.X), float64(at.Y), false, s.Joey)
 	}
 }
 
@@ -227,6 +229,13 @@ func drawTray(p pen, w *world.World, x float64) {
 		if k := &w.Koalas[i]; k.State == world.InTray {
 			drawKoala(p, left+9+float64(n%5)*16, deck-float64(n/5)*6, false, k.Joey)
 			n++
+		}
+	}
+	// Lost joeys a ranger has carried to the back of the ute (DESIGN §6).
+	if w.Ending > 0 && w.Ending <= config.EndTicks {
+		for range w.LostJoeys() {
+			drawJoey(p, left+6, deck-float64(n/5)*6-4)
+			left += 8
 		}
 	}
 	p.rect(left, deck-6, config.TrayBack+config.Headboard-4, 18, resurrect64.Fog)

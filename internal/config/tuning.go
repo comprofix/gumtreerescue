@@ -61,12 +61,41 @@ const (
 	Headboard = 76
 )
 
-// What happens to a missed koala, and a koala that grabs the tree (DESIGN
-// §5).
+// Spot is a place in the tree, as a koala's feet, in field pixels from the
+// top left.
+type Spot struct{ X, Y int }
+
+// Spots are where waiting koalas sit in the tree, one each: on branches, in
+// the forks, holding the trunk and at its foot (DESIGN §5). A level's
+// koalas start in them in order, the first to drop in the first.
+var Spots = [KoalaLevel]Spot{
+	{70, 112}, {12, 104}, {31, 128}, {100, 81}, {36, 190},
+	{56, 236}, {20, 270}, {16, 331}, {122, 60}, {4, 68},
+}
+
+// JoeyPerches are where a lost joey sits while it looks for its mother
+// (DESIGN §6): more than a level ever has joeys.
+var JoeyPerches = [3]Spot{{52, 96}, {86, 66}, {28, 150}}
+
+// How koalas get about the tree (DESIGN §5): up and down the trunk at
+// ClimbX, and out along a branch that rises BranchRise from the trunk to
+// its tip, the drop point.
+const (
+	ClimbX     = 44
+	BranchRise = 34
+)
+
+// What happens to a missed koala, a koala bounced into the tree and a lost
+// joey (DESIGN §5, §6).
 const (
 	DazedTicks   = 90            // sitting dazed on the ground
 	CrawlSubPx   = 3 * SubPx / 4 // crawling back to the tree, per tick
-	ClimbTicks   = 2 * TPS       // climbing back up to wait again
+	ClimbSubPx   = 3 * SubPx / 4 // climbing about the tree, per tick
+	SlipChance   = 50            // in a hundred: a koala bounced into the tree slips, or grabs on
+	JoeyTumblePx = 10            // a lost joey lands this far right of its mother
+	JoeySearch   = 2 * TPS       // a lost joey looks for its mother at least this long,
+	JoeySearchUp = 6 * TPS       // and up to this much longer, at random
+	CarryTicks   = 3 * TPS       // at a level's end, a ranger carries lost joeys to the ute
 	BonkedTicks  = 2 * TPS       // dazed in the tray after a headboard bonk
 	LevelTicks   = 5 * TPS / 2   // the intro card, while the ute drives in
 	EndTicks     = 4 * TPS       // the ute drives off, and the level's tally

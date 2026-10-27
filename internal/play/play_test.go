@@ -65,8 +65,11 @@ func summary(p *Play) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "level %d  score %d  lives %d  over %v\n", w.Level, w.Session.Score, w.Session.Lives, w.Over)
 	fmt.Fprintf(&b, "waiting %d  rescued %d  misses %d  sheet %d\n", len(w.Tree), w.Rescued, w.Misses, w.Sheet)
+	for _, s := range w.Tree {
+		fmt.Fprintf(&b, "waiting %d: spot %d joey %v\n", s.ID, s.Spot, s.Joey)
+	}
 	for i, k := range w.Koalas {
-		fmt.Fprintf(&b, "koala %d: state %d x %d h %d target %d missed %v bonked %v joey %v\n", i, k.State, k.X, k.H, k.Target, k.Missed, k.Bonked, k.Joey)
+		fmt.Fprintf(&b, "koala %d: id %d state %d x %d h %d target %d missed %v bonked %v slipped %v joey %v baby %v\n", i, k.ID, k.State, k.X, k.H, k.Target, k.Missed, k.Bonked, k.Slipped, k.Joey, k.Baby)
 	}
 	return b.String()
 }

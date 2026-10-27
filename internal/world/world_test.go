@@ -16,9 +16,27 @@ var normal = config.Skills[1]
 // with the first koala about to start its wobble.
 func newWorld(t *testing.T) *World {
 	t.Helper()
-	w := New(session.New(normal, normal.Lives), 1, rand.New(rand.NewPCG(1, 2)))
+	return seeded(t, 1)
+}
+
+// seeded is newWorld with its own seed.
+func seeded(t *testing.T, seed uint64) *World {
+	t.Helper()
+	w := New(session.New(normal, normal.Lives), 1, rand.New(rand.NewPCG(seed, 2)))
 	w.Starting, w.nextDrop = 0, 1
 	return w
+}
+
+// spotsDistinct fails t if two koalas in the tree share a spot.
+func spotsDistinct(t *testing.T, w *World) {
+	t.Helper()
+	seen := map[int]bool{}
+	for _, s := range w.Tree {
+		if seen[s.Spot] {
+			t.Fatalf("two koalas in spot %d: %+v", s.Spot, w.Tree)
+		}
+		seen[s.Spot] = true
+	}
 }
 
 // zoneMiddle is the offset of zone z's middle from the sheet's middle, in
@@ -152,7 +170,8 @@ func TestSafeRescue(t *testing.T) {
 }
 
 // TestMissCrawlsBack lets a koala fall past the sheet: a life lost, then
-// dazed, crawling and climbing back to wait again (DESIGN §5).
+// dazed, crawling and climbing back to a free spot to wait again (DESIGN
+// §5).
 func TestMissCrawlsBack(t *testing.T) {
 	w := newWorld(t)
 	w.Row.GapTicks = 1 << 20 // only one koala
@@ -170,28 +189,70 @@ func TestMissCrawlsBack(t *testing.T) {
 	if len(w.Tree) != waiting+1 {
 		t.Errorf("waiting %d, want %d: the koala did not climb back", len(w.Tree), waiting+1)
 	}
+	spotsDistinct(t, w)
 }
 
-// TestTreeGrab bounces a koala left from the first station: it grabs the
-// tree and climbs back, with no life lost (DESIGN §5).
-func TestTreeGrab(t *testing.T) {
-	for _, z := range []int{1, 2} {
-		w := newWorld(t)
-		w.Row.GapTicks = 1 << 20
-		in := holdFor(StationX(0), z)
-		caught := false
-		run(t, w, func() Input {
-			if caught {
-				return Input{}
+// TestTreeHit bounces a mother with a joey left from the first station, on
+// many seeds: she grabs the tree and climbs to a spot with her joey, or
+// slips to the ground and loses it until it finds her. No life is lost
+// either way, and both happen (DESIGN §5, §6).
+func TestTreeHit(t *testing.T) {
+	grabs, slips := 0, 0
+	for seed := range uint64(20) {
+		for _, z := range []int{1, 2} {
+			w := seeded(t, seed)
+			w.Row.GapTicks = 1 << 20
+			w.Tree[0].Joey = true
+			in := holdFor(StationX(0), z)
+			caught, lost, found := false, false, false
+			var hit Event
+			run(t, w, func() Input {
+				if caught {
+					return Input{}
+				}
+				return in
+			}, 1000, func(es []Event) bool {
+				caught = caught || has(es, Bounced)
+				for _, e := range es {
+					if e.Kind == Grabbed || e.Kind == Slipped {
+						hit = e
+						return true
+					}
+				}
+				return false
+			})
+			k := w.Koalas[0]
+			switch hit.Kind {
+			case Grabbed:
+				grabs++
+				if k.State != Climbing || k.X != config.TrunkX*config.SubPx || k.H <= 0 || !k.Joey {
+					t.Fatalf("seed %d zone %d: grabbed, then %v at %d,%d joey %v", seed, z, k.State, k.X, k.H, k.Joey)
+				}
+			case Slipped:
+				slips++
+				if k.State != Falling || !k.Slipped {
+					t.Fatalf("seed %d zone %d: slipped, then %v", seed, z, k.State)
+				}
 			}
-			return in
-		}, 1000, func(es []Event) bool {
-			caught = caught || has(es, Bounced)
-			return has(es, Grabbed)
-		})
-		if w.Koalas[0].State != Climbing || w.Session.Lives != normal.Lives || w.Misses != 0 {
-			t.Errorf("zone %d: %v, lives %d, misses %d", z, w.Koalas[0].State, w.Session.Lives, w.Misses)
+			run(t, w, func() Input { return Input{} }, 3000, func(es []Event) bool {
+				lost = lost || has(es, JoeyLost)
+				found = found || has(es, JoeyFound)
+				return len(w.Koalas) == 0
+			})
+			if lost != (hit.Kind == Slipped) || found != lost {
+				t.Errorf("seed %d zone %d: %v, joey lost %v found %v", seed, z, hit.Kind, lost, found)
+			}
+			if back := w.Tree[len(w.Tree)-1]; back.ID != 0 || !back.Joey {
+				t.Errorf("seed %d zone %d: back of the queue %+v, want koala 0 with her joey", seed, z, back)
+			}
+			if w.Session.Lives != normal.Lives || w.Misses != 0 {
+				t.Errorf("seed %d zone %d: lives %d misses %d", seed, z, w.Session.Lives, w.Misses)
+			}
+			spotsDistinct(t, w)
 		}
+	}
+	if grabs == 0 || slips == 0 {
+		t.Errorf("grabs %d slips %d: want both", grabs, slips)
 	}
 }
 
@@ -331,14 +392,23 @@ func TestLanding(t *testing.T) {
 	}
 }
 
-// TestWobble checks a koala wobbles on its branch for WobbleTicks before it
-// drops (DESIGN §5).
+// TestWobble checks a koala walks from its spot out to the tip of its
+// branch, then wobbles there for WobbleTicks before it drops (DESIGN §5).
 func TestWobble(t *testing.T) {
 	w := newWorld(t)
-	if es := w.Update(Input{}); !has(es, Wobble) || w.Koalas[0].State != Wobbling {
-		t.Fatalf("no wobble: %v", es)
+	spot := w.Tree[0].Spot
+	if es := w.Update(Input{}); !has(es, Leaving) || w.Koalas[0].State != Walking {
+		t.Fatalf("did not leave its spot: %v", es)
 	}
 	k := &w.Koalas[0]
+	if x, h := SpotAt(config.Spots[spot]); k.X != x || k.H != h {
+		t.Fatalf("set off from %d,%d, not its spot %d,%d", k.X, k.H, x, h)
+	}
+	run(t, w, func() Input { return Input{} }, 1000, func(es []Event) bool { return has(es, Wobble) })
+	d := w.Row.Drops[0]
+	if k.State != Wobbling || k.X != StationX(d.Station) || k.H != d.Height*config.SubPx {
+		t.Fatalf("wobbling %v at %d,%d, not the drop point", k.State, k.X, k.H)
+	}
 	h := k.H
 	for range config.WobbleTicks - 1 {
 		if has(w.Update(Input{}), Dropped) {
@@ -440,8 +510,8 @@ func TestJoeysInTheTree(t *testing.T) {
 		for n := 1; n <= 10; n++ {
 			w.startLevel(n)
 			got := 0
-			for _, j := range w.Tree {
-				if j {
+			for _, s := range w.Tree {
+				if s.Joey {
 					got++
 				}
 			}
@@ -476,24 +546,177 @@ func TestJoeyDouble(t *testing.T) {
 	}
 }
 
-// TestJoeyKeptAfterMiss misses a mother with a joey: she climbs back up
-// still carrying it, and drops with it again (DESIGN §5).
-func TestJoeyKeptAfterMiss(t *testing.T) {
+// TestJoeyTumbles misses a mother with a joey: it tumbles off, dazed, and
+// both climb the tree on their own. Once its search is over it climbs to
+// her, and she drops with it again (DESIGN §6).
+func TestJoeyTumbles(t *testing.T) {
 	w := newWorld(t)
-	w.Tree = []bool{true}
+	w.Tree = []Waiting{{ID: 4, Spot: 0, Joey: true}}
+	w.Row.GapTicks = 1 << 20
 	away := Input{Dir: 1}
 	run(t, w, func() Input { return away }, 2000, func(es []Event) bool { return has(es, Missed) })
-	if !w.Koalas[0].Joey {
-		t.Fatal("the koala dropped without her joey")
+	if len(w.Koalas) != 2 || w.Koalas[0].Joey || !w.Koalas[1].Baby || w.Koalas[1].ID != 4 || w.Koalas[1].State != Dazed {
+		t.Fatalf("after the miss: %+v", w.Koalas)
 	}
-	run(t, w, func() Input { return away }, 2000, func([]Event) bool { return len(w.Koalas) == 0 })
-	if len(w.Tree) != 1 || !w.Tree[0] {
-		t.Fatalf("tree %v after she climbed back, want [true]", w.Tree)
+	run(t, w, func() Input { return away }, 3000, func(es []Event) bool { return has(es, JoeyFound) })
+	if len(w.Tree) != 1 || !w.Tree[0].Joey || len(w.Koalas) != 0 {
+		t.Fatalf("tree %+v koalas %+v after the joey found her", w.Tree, w.Koalas)
 	}
-	run(t, w, func() Input { return away }, 2000, func(es []Event) bool { return has(es, Wobble) })
+	w.nextDrop = 0
+	run(t, w, func() Input { return away }, 2000, func(es []Event) bool { return has(es, Leaving) })
 	if !w.Koalas[0].Joey {
 		t.Error("she dropped again without her joey")
 	}
+}
+
+// TestLostJoeyWaits gives a joey whose search is over no mother in the
+// tree: it waits, and once she is back, climbs to her, holding her there
+// until it arrives (DESIGN §6).
+func TestLostJoeyWaits(t *testing.T) {
+	w := newWorld(t)
+	x, h := SpotAt(config.JoeyPerches[0])
+	w.Tree = nil
+	w.Koalas = []Koala{{State: Searching, X: x, H: h, Timer: 1, ID: 3, Baby: true}}
+	for range 200 {
+		w.Update(Input{})
+	}
+	if k := w.Koalas[0]; k.State != Lost || k.X != x || k.H != h {
+		t.Fatalf("joey with no mother: %v at %d,%d", k.State, k.X, k.H)
+	}
+	w.Tree, w.nextDrop = []Waiting{{ID: 3, Spot: 2}}, 0
+	run(t, w, func() Input { return Input{} }, 2000, func(es []Event) bool {
+		if has(es, JoeyFound) {
+			return true
+		}
+		if has(es, Leaving) {
+			t.Fatal("she left before her joey reached her")
+		}
+		return false
+	})
+	// She was due, so she leaves as soon as it is on her back.
+	if len(w.Tree) != 0 || len(w.Koalas) != 1 || w.Koalas[0].ID != 3 || !w.Koalas[0].Joey {
+		t.Errorf("tree %+v koalas %+v", w.Tree, w.Koalas)
+	}
+}
+
+// TestLostJoeyCarried ends a level with a joey still in the tree: the ending
+// takes longer, for a ranger to carry it to the ute, and it is gone when
+// the next level starts (DESIGN §6).
+func TestLostJoeyCarried(t *testing.T) {
+	w := newWorld(t)
+	w.Rescued, w.Tree = config.KoalaLevel-1, nil
+	from := w.Row.UteStation - 1
+	x, h := SpotAt(config.JoeyPerches[1])
+	w.Koalas = []Koala{
+		{State: Falling, X: StationX(from), Target: from, h0: 50 * config.SubPx, H: 50 * config.SubPx},
+		{State: Lost, X: x, H: h, ID: 7, Baby: true, Spot: 1},
+	}
+	in := holdFor(StationX(from), 4)
+	w.Sheet = in.Target
+	run(t, w, func() Input { return in }, 1000, func(es []Event) bool { return has(es, LevelDone) })
+	if w.Ending != config.EndTicks+config.CarryTicks || w.LostJoeys() != 1 {
+		t.Fatalf("ending %d lost joeys %d", w.Ending, w.LostJoeys())
+	}
+	run(t, w, func() Input { return Input{} }, config.EndTicks+config.CarryTicks+1, func([]Event) bool { return w.Level == 2 })
+	if w.LostJoeys() != 0 {
+		t.Error("the lost joey is still about on level 2")
+	}
+}
+
+// TestSpotsKept checks the koalas waiting in the tree stay in their spots
+// as others leave (DESIGN §5).
+func TestSpotsKept(t *testing.T) {
+	w := newWorld(t)
+	spotsDistinct(t, w)
+	before := append([]Waiting(nil), w.Tree...)
+	run(t, w, func() Input { return Input{} }, 10, func(es []Event) bool { return has(es, Leaving) })
+	for i, s := range w.Tree {
+		if s != before[i+1] {
+			t.Fatalf("after the first left, the tree is %+v, was %+v", w.Tree, before)
+		}
+	}
+}
+
+// TestNoJumps plays games with a careless player, who bounces koalas every
+// way and misses some, and checks no koala ever jumps from place to place:
+// in the tree and on the ground each moves at most a step a tick, each
+// sets off from its spot, and each comes to a stop in its spot (DESIGN §5).
+func TestNoJumps(t *testing.T) {
+	type id struct {
+		n    int
+		baby bool
+	}
+	slow := func(s State) bool {
+		return s == Walking || s == Wobbling || s == Dazed || s == Crawling || s == Climbing || s == Searching || s == Lost || s == Finding
+	}
+	near := func(k Koala, s Waiting) bool {
+		x, h := SpotAt(config.Spots[s.Spot])
+		return abs(k.X-x)+abs(k.H-h) <= 2*config.ClimbSubPx
+	}
+	for seed := range uint64(10) {
+		w := seeded(t, seed)
+		r := rand.New(rand.NewPCG(seed, 5))
+		zone, level := 4, 0
+		prev, seats := map[id]Koala{}, map[int]Waiting{}
+		for tick := 0; tick < 30000 && !w.Over; tick++ {
+			var in Input
+			if k, ok := soonest(w); ok {
+				in = holdFor(StationX(k.Target), zone)
+			}
+			es := w.Update(in)
+			if has(es, Bounced) {
+				zone = 1 + r.IntN(5)
+			}
+			if w.Level != level {
+				level, prev, seats = w.Level, map[id]Koala{}, map[int]Waiting{}
+			}
+			now := map[id]Koala{}
+			for _, k := range w.Koalas {
+				i := id{k.ID, k.Baby}
+				now[i] = k
+				p, was := prev[i]
+				switch {
+				case was && slow(p.State) && slow(k.State):
+					if abs(k.X-p.X)+abs(k.H-p.H) > 2*config.ClimbSubPx {
+						t.Fatalf("seed %d tick %d: koala %v jumped from %d,%d (%v) to %d,%d (%v)", seed, tick, i, p.X, p.H, p.State, k.X, k.H, k.State)
+					}
+				case !was && !k.Baby:
+					if s, ok := seats[k.ID]; ok && k.State == Walking && !near(k, s) {
+						t.Fatalf("seed %d tick %d: koala %d set off from %d,%d, not its spot %+v", seed, tick, k.ID, k.X, k.H, s)
+					}
+				}
+			}
+			for _, s := range w.Tree {
+				if _, sat := seats[s.ID]; !sat {
+					if p, ok := prev[id{s.ID, false}]; ok && !near(p, s) {
+						t.Fatalf("seed %d tick %d: koala %d sat in spot %d from %d,%d", seed, tick, s.ID, s.Spot, p.X, p.H)
+					}
+				}
+			}
+			spotsDistinct(t, w)
+			prev, seats = now, map[int]Waiting{}
+			for _, s := range w.Tree {
+				seats[s.ID] = s
+			}
+		}
+	}
+}
+
+// soonest is the koala that comes down to the sheet soonest, if any.
+func soonest(w *World) (*Koala, bool) {
+	var best *Koala
+	first := 0
+	for i := range w.Koalas {
+		k := &w.Koalas[i]
+		station, ticks, ok := w.Landing(k)
+		if !ok || station == w.Row.UteStation {
+			continue
+		}
+		if best == nil || ticks < first {
+			best, first = k, ticks
+		}
+	}
+	return best, best != nil
 }
 
 // TestFairHoldsDrops checks the scheduler won't drop a koala that lands
@@ -516,19 +739,23 @@ func TestFairHoldsDrops(t *testing.T) {
 			t.Errorf("another koala landing on station %d with it: fair %v, want %v", c.station, got, c.want)
 		}
 	}
-	// Rangers far off hold a drop back, but only for DropWait.
+	// Rangers far off hold a drop back, but only for DropWait. The koala
+	// waits on the drop point itself, with no walk to give them time.
+	was := config.Spots[0]
+	t.Cleanup(func() { config.Spots[0] = was })
+	config.Spots[0] = config.Spot{X: StationX(d.Station) / config.SubPx, Y: config.SheetY - d.Height}
 	w.Koalas = nil
 	_, w.Sheet = w.SheetRange()
 	if koalas, rangers := w.fair(&k); !koalas || rangers {
 		t.Errorf("rangers out of reach: fair %v, %v; want true, false", koalas, rangers)
 	}
-	w.Tree, w.nextDrop = []bool{false}, 1
+	w.Tree, w.nextDrop = []Waiting{{}}, 1
 	for range config.DropWait {
-		if has(w.Update(Input{}), Wobble) {
+		if has(w.Update(Input{}), Leaving) {
 			t.Fatal("dropped with the rangers out of reach")
 		}
 	}
-	run(t, w, func() Input { return Input{} }, 2*config.DropRetry, func(es []Event) bool { return has(es, Wobble) })
+	run(t, w, func() Input { return Input{} }, 2*config.DropRetry, func(es []Event) bool { return has(es, Leaving) })
 }
 
 // perfectBot heads the sheet to the next catch safe play makes, or with
