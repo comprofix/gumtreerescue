@@ -319,6 +319,7 @@ func drawKoala(p pen, w *world.World, k *world.Koala, tick int) {
 	case world.Dazed:
 		l.Lean = 0.08 * math.Sin(float64(tick)*0.15)
 		art.Dazed(a, l)
+		art.Dizzy(a, tick)
 	case world.Searching:
 		l.Lean = 0.2 * math.Sin(float64(tick)*0.06)
 		art.Koala(a, l)
@@ -497,6 +498,7 @@ func drawTray(p pen, w *world.World, x float64) {
 			l := art.Look{Joey: k.Joey}
 			if k.Bonked && k.Timer > 0 {
 				art.Dazed(a, l)
+				art.Dizzy(a, k.Timer)
 			} else {
 				art.Koala(a, l)
 			}
