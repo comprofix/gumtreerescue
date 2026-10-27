@@ -7,125 +7,36 @@ reads and `.gitignore` keeps out of git.
 
 ## 1. Project
 
-**Game Skeleton:** a starter repository for Go and Ebitengine 2D games, in
-one of two art styles: **pixel art** (sprites, whole-pixel scaling, bitmap
-fonts), for retro and arcade games, or **smooth** (1280×720, shapes drawn in
-code, an outline font, smooth scaling), which suits card, board and table
-games. A game can also have both, as two looks switched in Options. New
-games are created from it (it is a GitHub template repository),
-so it must stay **game-agnostic**. The only game content is the small demo
-("Dot Dash"), which is pixel art.
+**Gum Tree Rescue:** an original single-screen arcade game with an
+Australian theme. Koalas fall from a gum tree on the left, and two rangers
+with a sheet bounce them across the screen into the tray of a ute parked on
+the right. Built from the Game Skeleton (Go and Ebitengine).
 
 - Remote: `git@github.com:comprofix/gumtreerescue.git`
 - `DESIGN.md` and `PLAN.md` are local working documents, **not tracked in git**.
 
-> During new game setup (§2), Claude replaces this section with the game's own
-> description and fixed decisions, and removes §11.
+Fixed decisions (DESIGN.md §10 has them all):
 
-For further work on the skeleton, §2 offers to write fresh DESIGN.md and
-PLAN.md for that work.
+- **A brand-new game** in the catch-and-bounce genre, not a remake. No
+  other game, decompile or clone is used as a reference (§9, DESIGN §0).
+- **Both looks:** Smooth (1280×720), which players start on, and Modern
+  pixel art (640×360), switched in Options. Resurrect 64 and `Chip4`. Game
+  coordinates are those of the 640×360 screen.
+- **Bounces:** real gravity, true free fall from the branch, and a fixed
+  rebound peak, so every bounce takes the same time. The sheet has five
+  zones (−2, −1, 0, +1, +2 steps) and koalas land on stations one step
+  apart.
+- **Single player**, with Easy, Normal and Hard skills and a high score
+  table for each.
+- **CI/CD is set up:** release builds by GitHub Actions when a version tag
+  is pushed (§5).
 
-## 2. New game setup
-
-**At the start of a session, check whether `DESIGN.md` and `PLAN.md` exist.** If
-either is missing:
-
-1. **Ask:** "Is this a new game made from the skeleton, or work on the
-   skeleton itself?"
-   - **The skeleton itself:** ask whether to write fresh DESIGN.md and PLAN.md
-     for that work, or carry on without them. Skip the rest of this section.
-2. **For a new game, ask about it.** Group the questions; don't ask one at a
-   time.
-   - The name, a one-line summary, and the module path
-     (`github.com/comprofix/<game>`).
-   - A brand-new game, or a remake of an existing one (§9 applies to remakes).
-   - "Pixel art, smooth, or both?" (§7):
-     - **Pixel art:** sprites on a low-resolution screen scaled by whole
-       pixels, with bitmap fonts. For retro and arcade games.
-     - **Smooth:** the **Smooth** preset, 1280×720, Resurrect 64, `Chip4`,
-       scaled smoothly to any window; art drawn in code from shapes, text in
-       Go Mono Bold. For card, board, puzzle and table games.
-     - **Both:** two looks, switched in Options: Smooth, which players
-       start on, and Modern pixel art at half its size. The game's own
-       scenes start as pixel art, enlarged in the smooth look, and are
-       redrawn for it one at a time (§7).
-   - For pixel art, the preset:
-     - **Modern:** 640×360, Resurrect 64, `Chip4`.
-     - **Classic PC:** 320×200, Sweetie 16, `Speaker`, optional CRT 4:3.
-     - Or custom settings.
-   - Theme, hero, controls, main rules, scoring, difficulty and any special
-     mechanics.
-   - What is not included in v1.
-   - For pixel art, whether to keep the Dot Dash demo for reference (it is
-     removed by default). A smooth game, or one with both looks, never keeps
-     it.
-   - "Do you want to set up CI/CD as part of this project?" That is, release
-     builds made by GitHub Actions when a version tag is pushed (§5). Nothing
-     runs until the first tag, so it is safe to set up on day one.
-3. **Summarise the answers and wait for the go-ahead.** Then:
-   1. Run `go run ./tools/newgame -module … -name … -title "…" -style …`,
-      with `-style pixel`, `-style smooth` or `-style both`. Add
-      `-keep-demo` only if asked (pixel art only). It renames the module, the
-      command folder and the commands in §5, sets the title and the preset
-      for the style (`Modern`, `Smooth`, or `Smooth` with `Modern` second),
-      writes a new README and removes itself.
-   2. For pixel art with another preset, set it in
-      `internal/config/project.go`: `Classic`, or a custom `Preset` added to
-      `internal/config/preset.go`.
-   3. If CI/CD was wanted, set it up as in §5.
-   4. Write `DESIGN.md` and `PLAN.md` using the outlines below. Mark anything
-      not yet decided as **(open)** in the decisions table, and record the
-      CI/CD answer there either way.
-   5. Change §1 of this file to describe the game, including its fixed
-      decisions. Replace this §2 with the short section below. Remove §11.
-   6. Run `go vet ./...` and `go test ./...`.
-4. **Hand back:** show the documents, list the open decisions, and stop. Do not
-   write game code or commit until the user says so.
-
-### Replacement §2 for a game
-
-```
 ## 2. Working documents
 
 DESIGN.md and PLAN.md are local and not tracked in git. If either is missing
 at the start of a session, ask the user for their copies before doing
 anything else. Don't write new ones unless the user asks. This file is
 tracked; personal instructions go in CLAUDE.local.md, which is not.
-```
-
-### DESIGN.md outline
-
-```
-# DESIGN — <Game>
-<what the game is; for a remake, what it is faithful to>
-> Status line
-1. Pillars              3–5 guiding principles
-2. Theme and setting    world, hero, name
-3. Look and sound       resolution, palette, art style, screen layout mock-up, audio
-4. Controls             key, gamepad and mouse table; reserved keys
-5. Rules                movement, hazards, goals, timer, lives, scoring table, difficulty and skills
-6. Special mechanics    each with a short description
-7. Screens and flow     scene diagram; title, menus, game over, high scores
-8. Options and accessibility
-9. Not in v1
-10. Decisions           table: # | Decision | Status (Decided: … / (open) + recommendation)
-```
-
-### PLAN.md outline
-
-```
-# PLAN — <Game>
-> Status line
-1. Technology           table (from the skeleton, plus anything the game adds)
-2. Code layout          the skeleton packages plus the game's own (e.g. world/, fx/)
-3. Technical approach   game logic, collision, events, levels as data, randomness
-4. Testing              unit tests for game logic, golden replays, manual checklists
-5. Milestones           M0…Mn: "- [ ]" tasks, then "Done when:"; each one playable.
-                        The milestone before the first release includes the
-                        game's own program icon (§7)
-6. Risks                table: Risk | What we do about it
-7. Discuss later
-```
 
 ## 3. Phases and decisions
 
@@ -436,19 +347,3 @@ game's own in its place and set `icon.Placeholder` to false. Until then
 - Run `go vet ./...` and `go test ./...` before saying work is done.
 - Visual and audio work: check by hand against a short checklist at each
   milestone, and offer screenshots for the user to review.
-
-## 11. Rules for the skeleton itself
-
-Removed during new game setup.
-
-- **Stay game-agnostic.** Only add what a typical 2D game needs, pixel or
-  smooth. Anything else goes in PLAN.md "Discuss later".
-- **All three presets must work:** Modern, Classic PC and Smooth, and the
-  two looks together (Smooth with Modern). Test them all whenever the
-  scaler, palettes, fonts, input, audio or the shared scenes change, and the
-  shared scenes by mouse as well as keys.
-- **Keep the demo separate.** Demo code lives only in `internal/demo` and
-  `assets/sprites/demo.txt`. `tools/newgame` must be able to remove it
-  cleanly.
-- **Keep new game setup working.** Any change to module paths, folders or §2 of
-  this file must keep the `tools/newgame` test passing.
