@@ -58,9 +58,11 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	drawWaiting(pn, w.Waiting)
 	drawUte(pn, px(w.UteX()))
 	drawTray(pn, w)
+	late := w.Session.Skill.LateMarker
 	for i := range w.Koalas {
 		k := &w.Koalas[i]
-		if station, _, ok := w.Landing(k); ok {
+		// On Hard the marker shows only for a bounce's last third (DESIGN §5).
+		if station, ticks, ok := w.Landing(k); ok && (!late || 3*ticks <= w.Row.BounceTicks) {
 			drawMarker(pn, px(world.StationX(station)))
 		}
 	}

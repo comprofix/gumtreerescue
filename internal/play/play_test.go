@@ -19,7 +19,7 @@ func start(t *testing.T, seed uint64) (*scenetest.Harness, *Play) {
 	h := scenetest.New(t, seed)
 	h.Ctx.NewPlay = New
 	h.Ctx.NativePlay = true
-	p := New(h.Ctx, config.Skills[0]).(*Play)
+	p := New(h.Ctx, config.Skills[1]).(*Play) // Normal
 	h.Start(p)
 	h.Ticks(scene.FadeTicks)
 	return h, p
@@ -83,7 +83,7 @@ func TestGoldenReplay(t *testing.T) {
 		h.Run(input.Step{Keys: botKey(p.World()), Ticks: 1})
 	}
 	w := p.World()
-	if w.Misses != 0 || w.Session.Lives != config.StartLives || w.Level < 2 {
+	if w.Misses != 0 || w.Session.Lives != w.Session.Skill.Lives || w.Level < 2 {
 		t.Errorf("the steady player missed: level %d, lives %d, misses %d", w.Level, w.Session.Lives, w.Misses)
 	}
 	scenetest.Golden(t, "replay", summary(p))

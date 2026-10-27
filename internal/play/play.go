@@ -27,7 +27,7 @@ type Play struct {
 
 // New starts a game at a skill, on the level the -level flag asks for.
 func New(ctx *scene.Context, skill config.Skill) scene.Scene {
-	ctx.Session = session.New(skill, config.StartLives)
+	ctx.Session = session.New(skill, skill.Lives)
 	return &Play{world: world.New(ctx.Session, ctx.StartLevel, ctx.RNG)}
 }
 

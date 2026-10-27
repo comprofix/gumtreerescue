@@ -8,11 +8,14 @@ import (
 	"github.com/comprofix/gumtreerescue/internal/session"
 )
 
-// newWorld is a game on level 1, past the level's opening pause, with the
-// first koala about to drop.
+// normal is the skill the tests play at.
+var normal = config.Skills[1]
+
+// newWorld is a game on level 1 at Normal, past the level's opening pause,
+// with the first koala about to drop.
 func newWorld(t *testing.T) *World {
 	t.Helper()
-	w := New(session.New(config.Skill{ID: "test"}, 0), 1, rand.New(rand.NewPCG(1, 2)))
+	w := New(session.New(normal, normal.Lives), 1, rand.New(rand.NewPCG(1, 2)))
 	w.Starting, w.nextDrop = 0, 1
 	return w
 }
@@ -142,8 +145,8 @@ func TestSafeRescue(t *testing.T) {
 	}
 	run(t, w, in, 1000, func(es []Event) bool { return has(es, Rescued) })
 	want := w.Row.UteStation*config.SafePoints + config.RescuePoints
-	if w.Session.Score != want || w.Rescued != 1 || w.Session.Lives != config.StartLives {
-		t.Errorf("score %d rescued %d lives %d, want %d, 1, %d", w.Session.Score, w.Rescued, w.Session.Lives, want, config.StartLives)
+	if w.Session.Score != want || w.Rescued != 1 || w.Session.Lives != normal.Lives {
+		t.Errorf("score %d rescued %d lives %d, want %d, 1, %d", w.Session.Score, w.Rescued, w.Session.Lives, want, normal.Lives)
 	}
 }
 
@@ -154,7 +157,7 @@ func TestMissCrawlsBack(t *testing.T) {
 	w.Row.GapTicks = 1 << 20 // only one koala
 	away := Input{Dir: 1}
 	run(t, w, func() Input { return away }, 1000, func(es []Event) bool { return has(es, Missed) })
-	if w.Session.Lives != config.StartLives-1 || w.Misses != 1 {
+	if w.Session.Lives != normal.Lives-1 || w.Misses != 1 {
 		t.Fatalf("lives %d misses %d after a miss", w.Session.Lives, w.Misses)
 	}
 	k := &w.Koalas[0]
@@ -185,7 +188,7 @@ func TestTreeGrab(t *testing.T) {
 			caught = caught || has(es, Bounced)
 			return has(es, Grabbed)
 		})
-		if w.Koalas[0].State != Climbing || w.Session.Lives != config.StartLives || w.Misses != 0 {
+		if w.Koalas[0].State != Climbing || w.Session.Lives != normal.Lives || w.Misses != 0 {
 			t.Errorf("zone %d: %v, lives %d, misses %d", z, w.Koalas[0].State, w.Session.Lives, w.Misses)
 		}
 	}
@@ -241,7 +244,7 @@ func TestGameOver(t *testing.T) {
 	w := newWorld(t)
 	away := Input{Dir: 1}
 	run(t, w, func() Input { return away }, 20000, func(es []Event) bool { return has(es, GameOver) })
-	if !w.Over || w.Session.Lives != 0 || w.Misses != config.StartLives {
+	if !w.Over || w.Session.Lives != 0 || w.Misses != normal.Lives {
 		t.Errorf("over %v lives %d misses %d", w.Over, w.Session.Lives, w.Misses)
 	}
 	if es := w.Update(away); len(es) != 0 {
@@ -324,5 +327,23 @@ func TestLanding(t *testing.T) {
 	w.Update(Input{})
 	if k.State == Falling && !k.Missed {
 		t.Errorf("not down when Landing said, h %d", k.H)
+	}
+}
+
+// TestSkills checks the skills start with their own lives and ranger speed
+// and Easy's rangers are quicker (DESIGN §5).
+func TestSkills(t *testing.T) {
+	for _, sk := range config.Skills {
+		w := New(session.New(sk, sk.Lives), 1, rand.New(rand.NewPCG(1, 2)))
+		if w.Session.Lives != sk.Lives {
+			t.Errorf("%s: lives %d, want %d", sk.Name, w.Session.Lives, sk.Lives)
+		}
+		if w.RangerSpeed() < w.speed(config.RangerReach) {
+			t.Errorf("%s: rangers slower than Normal's", sk.Name)
+		}
+	}
+	easy := New(session.New(config.Skills[0], 5), 1, rand.New(rand.NewPCG(1, 2)))
+	if easy.RangerSpeed() <= newWorld(t).RangerSpeed() {
+		t.Error("Easy's rangers are no quicker than Normal's")
 	}
 }

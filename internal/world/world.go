@@ -101,10 +101,10 @@ type World struct {
 	events   []Event
 }
 
-// New starts a game on level (1 or more) with the session's lives set to
-// config.StartLives.
+// New starts a game on level (1 or more) with the lives of the session's
+// skill.
 func New(s *session.Session, level int, rng *rand.Rand) *World {
-	s.Lives = config.StartLives
+	s.Lives = s.Skill.Lives
 	w := &World{Session: s, rng: rng}
 	w.startLevel(max(level, 1))
 	return w
@@ -141,10 +141,12 @@ func (w *World) SheetRange() (lo, hi int) {
 	return config.TrunkX*config.SubPx + reach, w.UteX() - config.TrayBack*config.SubPx - reach
 }
 
-// RangerSpeed is how far the rangers move in a tick, in fixed point:
-// RangerReach hundredths of a step per bounce.
-func (w *World) RangerSpeed() int {
-	return config.RangerReach * config.StepPx * config.SubPx / (100 * w.Row.BounceTicks)
+// RangerSpeed is how far the rangers move in a tick, in fixed point: the
+// skill's Reach hundredths of a step per bounce.
+func (w *World) RangerSpeed() int { return w.speed(w.Session.Skill.Reach) }
+
+func (w *World) speed(reach int) int {
+	return reach * config.StepPx * config.SubPx / (100 * w.Row.BounceTicks)
 }
 
 // Update advances the game one tick and returns what happened. The slice

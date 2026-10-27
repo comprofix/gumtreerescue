@@ -42,9 +42,9 @@ const (
 // zone 1 to zone 5.
 var ZoneSteps = [5]int{-2, -1, 0, 1, 2}
 
-// RangerReach is how far the rangers can move in one bounce, in hundredths
-// of a step: just over 2 steps, so a sharp slip can be caught with a quick
-// reaction (DESIGN §5).
+// RangerReach is how far the rangers can move in one bounce on Normal, in
+// hundredths of a step: just over 2 steps, so a sharp slip can be caught
+// with a quick reaction (DESIGN §5).
 const RangerReach = 220
 
 // RangerSide is how far each ranger reaches past the end of the sheet, in
@@ -70,7 +70,6 @@ const (
 	LevelTicks   = 2 * TPS       // the pause before a level starts
 	FirstDrop    = TPS / 2       // after that pause, until the first drop
 	KoalaLevel   = 10            // koalas rescued to finish a level
-	StartLives   = 3             // lives at the start of a game
 	GameOverHold = 2 * TPS       // the finished game stays on screen
 )
 
