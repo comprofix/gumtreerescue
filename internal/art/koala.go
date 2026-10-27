@@ -32,9 +32,8 @@ type Look struct {
 type legs int
 
 const (
-	feet    legs = iota // feet out in front, sitting on something flat
-	hanging             // legs hanging over a limb, swinging
-	tucked              // tucked up, curled asleep
+	feet   legs = iota // feet out in front, sitting on something flat
+	tucked             // tucked up, curled asleep
 )
 
 // arm is what a sitting koala's arms are doing.
@@ -49,10 +48,6 @@ const (
 // Koala draws a koala sitting with its feet at the pen's origin, facing
 // out. It is about 21 field pixels wide and 27 tall.
 func Koala(p Pen, l Look) { sit(p, l, feet, resting, 0) }
-
-// Perched draws a koala sitting on a limb, the limb's top at the pen's
-// origin, its legs hanging over and swinging with swing (radians).
-func Perched(p Pen, l Look, swing float64) { sit(p, l, hanging, resting, swing) }
 
 // Asleep draws a koala curled up asleep in a fork, its feet at the pen's
 // origin.
@@ -81,11 +76,8 @@ func sit(p Pen, l Look, lg legs, a arm, t float64) {
 	// The outline: body and legs grown by a line.
 	p.Ellipse(0, -7.5, rx+Line, 7.5+Line, 0, ink)
 	for _, s := range []float64{-1, 1} {
-		switch lg {
-		case feet:
+		if lg == feet {
 			p.Ellipse(s*3.8, -1.2, 3+Line, 1.8+Line, 0, ink)
-		case hanging:
-			p.Stroke(ink, 3.4+2*Line, s*3.4, -2.5, s*3.6+0.7*math.Sin(t+s), 4.5)
 		}
 	}
 	// The body, shaded below and to the right, lit above and to the left,
@@ -100,10 +92,6 @@ func sit(p Pen, l Look, lg legs, a arm, t float64) {
 		case feet:
 			p.Ellipse(s*3.8, -1.2, 3, 1.8, 0, furShade)
 			p.Ellipse(s*3.6, -1.5, 2.2, 1.1, 0, fur)
-		case hanging:
-			fx := s*3.6 + 0.7*math.Sin(t+s)
-			p.Stroke(furShade, 3.4, s*3.4, -2.5, fx, 4.5)
-			p.Stroke(fur, 1.8, s*3.1, -2.5, fx-0.2, 3.8)
 		}
 		if a == chewing && s == 1 || a == holding && s == -1 {
 			continue // raised, drawn over the head
