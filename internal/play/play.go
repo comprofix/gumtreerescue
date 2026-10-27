@@ -24,6 +24,8 @@ type Play struct {
 	world *world.World
 	mouse bool      // the mouse is steering, until a key or the pad is used
 	tree  treeCache // the gum tree, drawn once a level
+	ute   uteCache  // the ute, drawn once
+	drive driving   // the ute's drive in or off, for its dust and smoke
 }
 
 // New starts a game at a skill, on the level the -level flag asks for.
@@ -57,6 +59,7 @@ func (p *Play) Update(ctx *scene.Context) error {
 			ctx.Cut(newEnded(p))
 		}
 	}
+	p.drive.step(p.world)
 	return nil
 }
 

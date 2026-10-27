@@ -68,8 +68,10 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	p.tree.draw(dst, pn.k, w.Row.Drops)
 	drawWaiting(pn, w.Tree, tick)
 	ute := px(w.UteX()) + uteShift(w)
-	drawUte(pn, ute)
+	drawSmoke(pn, w, p.drive)
+	p.ute.draw(dst, pn.k, ute, p.drive.speed())
 	drawTray(pn, w, ute)
+	drawDust(pn, w, p.drive)
 	late := w.Session.Skill.LateMarker
 	for i := range w.Koalas {
 		k := &w.Koalas[i]
@@ -451,28 +453,36 @@ func drawCarried(p pen, w *world.World, x float64, tick int) {
 	}
 }
 
-// drawUte is the ranger ute, parked with its tray's station at x (DESIGN
-// §2): tray and headboard behind, cab and bull bar in front.
-func drawUte(p pen, x float64) {
-	deck := float64(config.SheetY)
-	hb := x + config.Headboard
-	p.rect(x-config.TrayBack, deck+12, hb+90-(x-config.TrayBack), 8, resurrect64.Charcoal)
-	// The headboard and its mesh rack.
-	p.rect(hb-4, deck-50, 4, 50, resurrect64.Fog)
-	for y := deck - 48; y < deck; y += 6 {
-		p.line(hb-8, y, hb-1, y, 1, resurrect64.Fog)
+// uteCache is the ranger ute drawn once at the shown screen's scale, but
+// for its wheels and its tray's near side, as it is slow to draw (DESIGN
+// §2); Draw lays it wherever the ute is and rolls its wheels.
+type uteCache struct {
+	img *ebiten.Image
+	k   float64
+}
+
+// The ute's picture reaches this far behind its station and above its
+// tray's deck, and is this big, in field pixels.
+const (
+	uteBehind = config.TrayBack + 4
+	uteAbove  = 38
+	uteWide   = uteBehind + config.Headboard + art.UteFront + 4
+	uteTall   = uteAbove + art.UteWheel + 6
+)
+
+// draw lays the ute on dst with its tray's station at x, going speed field
+// pixels a tick, drawing it first if the scale has changed.
+func (c *uteCache) draw(dst *ebiten.Image, k, x, speed float64) {
+	if c.img == nil || c.k != k {
+		c.k = k
+		c.img = ebiten.NewImage(int(math.Ceil(uteWide*k)), int(math.Ceil(uteTall*k)))
+		art.Ute(art.Pen{Dst: c.img, K: k}.At(uteBehind, uteAbove), config.TrayBack, config.Headboard)
 	}
-	// The cab, bonnet and bull bar.
-	p.round(hb, deck-38, 60, 50, 6, resurrect64.White)
-	p.round(hb+7, deck-32, 28, 18, 3, resurrect64.Sky)
-	p.round(hb+56, deck-16, 32, 28, 5, resurrect64.White)
-	p.rect(hb+86, deck-14, 6, 30, resurrect64.Charcoal)
-	p.line(hb+50, deck-16, hb+50, deck-48, 4, resurrect64.Charcoal)
-	p.circle(hb+25, deck-4, 7, resurrect64.Forest)
-	for _, wx := range []float64{x + 10, hb + 68} {
-		p.circle(wx, deck+22, 14, resurrect64.Charcoal)
-		p.circle(wx, deck+22, 6, resurrect64.Fog)
-	}
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(math.Round((x-uteBehind)*k), math.Round((config.SheetY-uteAbove)*k))
+	dst.DrawImage(c.img, op)
+	// The wheels roll as it drives, turned by how far it has come.
+	art.UteWheels(art.Pen{Dst: dst, K: k}.At(math.Round(x*k)/k, config.SheetY), config.TrayBack, config.Headboard, art.UteRoll(x), art.UteRoll(speed))
 }
 
 // drawTray is the ute's tray, its station at x, with the rescued koalas in
@@ -499,8 +509,7 @@ func drawTray(p pen, w *world.World, x float64) {
 			art.Koala(art.Pen{Dst: p.dst, K: p.k}.At(left+6+float64(j)*8, deck-4).Sized(art.JoeySize), art.Look{})
 		}
 	}
-	p.rect(left, deck-6, config.TrayBack+config.Headboard-4, 18, resurrect64.Fog)
-	p.line(left, deck-6, left+config.TrayBack+config.Headboard-4, deck-6, 1, resurrect64.Mist)
+	art.TraySide(art.Pen{Dst: p.dst, K: p.k}.At(x, deck), config.TrayBack, config.Headboard)
 }
 
 // drawMarker is a landing marker on the track below a station.

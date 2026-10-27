@@ -11,7 +11,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"github.com/comprofix/gumtreerescue/internal/gfx"
-	"github.com/comprofix/gumtreerescue/internal/shapes"
 )
 
 // Line is how far an outline reaches past a shape, in field pixels.
@@ -31,6 +30,31 @@ type Pen struct {
 	sx, sy float64 // how much wider and taller it is drawn, 0 for as it is
 	turn   float64 // radians clockwise, about the pivot
 	pivot  float64 // how far above the origin the figure turns, at its size
+	solid  float64 // how solid it is drawn, from 0 to 1, 0 for wholly
+}
+
+// Faded is the pen drawing a times as solid, from 0 to 1, so what is
+// behind shows through, as through dust or smoke.
+func (p Pen) Faded(a float64) Pen {
+	p.solid = p.opacity() * a
+	return p
+}
+
+func (p Pen) opacity() float64 {
+	if p.solid == 0 {
+		return 1
+	}
+	return p.solid
+}
+
+// colour is the colour scale for palette colour c at the pen's opacity.
+func (p Pen) colour(c int) *vector.DrawPathOptions {
+	op := &vector.DrawPathOptions{AntiAlias: true}
+	op.ColorScale.ScaleWithColor(gfx.RGBA(c))
+	if p.solid != 0 {
+		op.ColorScale.ScaleAlpha(float32(p.solid))
+	}
+	return op
 }
 
 // Squashed is the pen drawing figures w times as wide and h times as tall
@@ -106,7 +130,7 @@ func (p Pen) path(xy []float64, closed bool) *vector.Path {
 // Poly fills the polygon through the x, y pairs in palette colour c.
 func (p Pen) Poly(c int, xy ...float64) {
 	if len(xy) >= 6 {
-		shapes.FillPath(p.Dst, p.path(xy, true), c)
+		vector.FillPath(p.Dst, p.path(xy, true), nil, p.colour(c))
 	}
 }
 
@@ -144,11 +168,9 @@ func (p Pen) Stroke(c int, w float64, xy ...float64) {
 	if len(xy) < 4 {
 		return
 	}
-	op := &vector.DrawPathOptions{AntiAlias: true}
-	op.ColorScale.ScaleWithColor(gfx.RGBA(c))
 	vector.StrokePath(p.Dst, p.path(xy, false), &vector.StrokeOptions{
 		Width: float32(w * p.K * p.size()), LineJoin: vector.LineJoinRound, LineCap: vector.LineCapRound,
-	}, op)
+	}, p.colour(c))
 }
 
 // Curve draws a smooth line w wide through the points.
