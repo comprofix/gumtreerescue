@@ -149,12 +149,12 @@ func TestDizzyBirdsFlyOff(t *testing.T) {
 	}
 }
 
-// TestFlockLeavesPlay checks the birds take nothing from the world's
-// random numbers: a game with them plays the same as one without.
+// TestFlockLeavesPlay checks the birds and kangaroos take nothing from the
+// world's random numbers: a game with them plays the same as one without.
 func TestFlockLeavesPlay(t *testing.T) {
 	ha, a := start(t, 3)
 	hb, b := start(t, 3)
-	b.birds = flock{}
+	b.birds, b.roos = flock{}, mob{}
 	ha.Ticks(40 * config.TPS)
 	hb.Ticks(40 * config.TPS)
 	if len(a.birds.birds) == 0 {

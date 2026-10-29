@@ -60,6 +60,8 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	p.back.ready(dst, pn.k)
 	dst.DrawImage(p.back.back, nil)
 	tick := int(ctx.Tick)
+	// The kangaroos are in the paddock behind the fence (DESIGN D27).
+	p.roos.draw(pn, tick)
 	dst.DrawImage(p.back.front, nil)
 	// The birds are far off, behind the big gum (DESIGN D27).
 	p.birds.draw(pn, tick)

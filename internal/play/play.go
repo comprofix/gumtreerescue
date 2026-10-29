@@ -29,6 +29,7 @@ type Play struct {
 	drive driving       // the ute's drive in or off, for its dust and smoke
 	crew  crew          // the rangers' walk and the sheet's give
 	birds flock         // the birds about the farm
+	roos  mob           // the kangaroos behind the fence
 	dizzy []ring        // the dazed effects showing last tick
 }
 
@@ -39,7 +40,7 @@ func New(ctx *scene.Context, skill config.Skill) scene.Scene {
 	if scenery == nil {
 		scenery = scene.NewSceneryRNG(0)
 	}
-	return &Play{world: world.New(ctx.Session, ctx.StartLevel, ctx.RNG), birds: newFlock(scenery)}
+	return &Play{world: world.New(ctx.Session, ctx.StartLevel, ctx.RNG), birds: newFlock(scenery), roos: newMob(scenery)}
 }
 
 // Native implements scene.Native: the scene draws in either look.
@@ -71,6 +72,7 @@ func (p *Play) Update(ctx *scene.Context) error {
 	p.drive.step(p.world)
 	p.crew.step(p.world, events)
 	p.birds.step()
+	p.roos.step()
 	now := rings(p.world, int(ctx.Tick))
 	p.birds.release(p.dizzy, now)
 	p.dizzy = now
