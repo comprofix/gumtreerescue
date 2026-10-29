@@ -73,16 +73,14 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	p.tree.draw(dst, pn.k, w.Row.Drops)
 	drawWaiting(pn, w.Tree, tick)
 	ute := px(w.UteX()) + uteShift(w)
+	// Shadows of koalas coming down into the tray fall on the track under
+	// it, behind its wheels (DESIGN D28).
+	drawMarkers(pn, w, true, ute)
 	drawSmoke(pn, w, p.drive)
 	p.ute.draw(dst, pn.k, ute, p.drive.speed())
 	drawTray(pn, w, ute)
 	drawDust(pn, w, p.drive)
-	for i := range w.Koalas {
-		// The tray's shadows are drawn by drawTray, inside its sides.
-		if station, near, ok := marker(w, &w.Koalas[i]); ok && station != w.Row.UteStation {
-			drawMarker(pn, px(world.StationX(station)), float64(config.GroundY)+markerDown, near)
-		}
-	}
+	drawMarkers(pn, w, false, ute)
 	// Koalas on the ground pass in front of the rangers (DESIGN §5). Lost
 	// joeys are the rangers' once the level is over (DESIGN §6).
 	ground := func(k *world.Koala) bool { return k.State == world.Dazed || k.State == world.Crawling }
@@ -500,12 +498,6 @@ func traySeat(x float64, n int) (float64, float64) {
 func drawTray(p pen, w *world.World, x float64) {
 	deck := float64(config.SheetY)
 	left := x - config.TrayBack
-	// Shadows of koalas coming down into the tray fall on its deck.
-	for i := range w.Koalas {
-		if station, near, ok := marker(w, &w.Koalas[i]); ok && station == w.Row.UteStation {
-			drawMarker(p, x, deck, near)
-		}
-	}
 	n := 0
 	for i := range w.Koalas {
 		if k := &w.Koalas[i]; k.State == world.InTray {
@@ -530,8 +522,25 @@ func drawTray(p pen, w *world.World, x float64) {
 }
 
 // markerDown is how far below the ground's top a landing shadow falls, on
-// the track under the sheet.
+// the track.
 const markerDown = 4
+
+// drawMarkers draws the landing markers of the koalas coming down into the
+// tray of the ute at ute, or, if not tray, of those coming down anywhere
+// else, each on the track below where it lands.
+func drawMarkers(p pen, w *world.World, tray bool, ute float64) {
+	for i := range w.Koalas {
+		station, near, ok := marker(w, &w.Koalas[i])
+		if !ok || (station == w.Row.UteStation) != tray {
+			continue
+		}
+		x := px(world.StationX(station))
+		if tray {
+			x = ute
+		}
+		drawMarker(p, x, float64(config.GroundY)+markerDown, near)
+	}
+}
 
 // marker is where k's landing marker goes and how near k is to landing,
 // from 0 just bounced to 1 down; ok is false when none shows. On Hard it
