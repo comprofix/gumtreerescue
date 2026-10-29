@@ -3,6 +3,7 @@ package play
 import (
 	"math"
 	"math/rand/v2"
+	"slices"
 
 	"github.com/comprofix/gumtreerescue/internal/art"
 	"github.com/comprofix/gumtreerescue/internal/config"
@@ -35,6 +36,8 @@ type bird struct {
 	state birdState
 	at    int  // its perch, or the one it flies to; -1 flying off
 	timer int  // ticks left perched, or away
+	sat   int  // ticks it has sat on its perch
+	gone  bool // flying off for good, to make room
 	left  bool // facing left
 	id    int  // its own time for looking about
 
@@ -101,6 +104,7 @@ func (f *flock) step() {
 		b := &f.birds[i]
 		switch b.state {
 		case perched:
+			b.sat++
 			if f.rng.Float64() < turnChance {
 				b.left = !b.left
 			}
@@ -112,7 +116,7 @@ func (f *flock) step() {
 				break
 			}
 			if b.at >= 0 {
-				b.state, b.timer = perched, f.between(perchMin, perchMax)
+				b.state, b.timer, b.sat = perched, f.between(perchMin, perchMax), 0
 			} else {
 				b.state, b.timer = away, f.between(awayMin, awayMax)
 			}
@@ -120,17 +124,46 @@ func (f *flock) step() {
 			if b.timer--; b.timer > 0 {
 				break
 			}
-			to := f.free(-1)
-			if to < 0 {
-				b.timer = awayMin
-				break
-			}
 			fw, _ := config.Field()
 			x := -offScreen + float64(f.rng.IntN(2))*(float64(fw)+2*offScreen)
 			b.x1, b.y1, b.s1 = x, float64(f.between(skyLow, skyHigh)), 1
-			f.flyTo(b, to)
+			f.flyTo(b, f.room())
 		}
 	}
+	// Birds that flew off to make room are gone once off the screen.
+	f.birds = slices.DeleteFunc(f.birds, func(b bird) bool { return b.gone && b.state == away })
+}
+
+// arrive brings a new bird of kind into the flock, flying in from (x, y)
+// at size s to a perch, making room if the perches are full.
+func (f *flock) arrive(kind art.Species, x, y, s float64) {
+	f.birds = append(f.birds, bird{kind: kind, id: len(f.birds), x1: x, y1: y, s1: s})
+	b := &f.birds[len(f.birds)-1]
+	f.flyTo(b, f.room())
+}
+
+// room is a free perch for a bird coming in: if the perches are all full,
+// the bird that has sat longest flies off the screen to make room, gone
+// for good if the flock is bigger than it starts (DESIGN D27).
+func (f *flock) room() int {
+	if to := f.free(-1); to >= 0 {
+		return to
+	}
+	var oldest *bird
+	for i := range f.birds {
+		if b := &f.birds[i]; b.state == perched && (oldest == nil || b.sat > oldest.sat) {
+			oldest = b
+		}
+	}
+	if oldest == nil { // every perch is a bird's to land on: fly on by
+		return -1
+	}
+	to := oldest.at
+	p := f.perches[to]
+	oldest.x1, oldest.y1, oldest.s1 = p.X, p.Y-birdMiddle*p.Size, p.Size
+	oldest.gone = len(f.birds) > birdCount
+	f.flyTo(oldest, -1)
+	return to
 }
 
 // leave takes a bird off its perch: to another free one, or off the
