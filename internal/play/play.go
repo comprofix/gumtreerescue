@@ -28,12 +28,17 @@ type Play struct {
 	ute   uteCache      // the ute, drawn once
 	drive driving       // the ute's drive in or off, for its dust and smoke
 	crew  crew          // the rangers' walk and the sheet's give
+	birds flock         // the birds about the farm
 }
 
 // New starts a game at a skill, on the level the -level flag asks for.
 func New(ctx *scene.Context, skill config.Skill) scene.Scene {
 	ctx.Session = session.New(skill, skill.Lives)
-	return &Play{world: world.New(ctx.Session, ctx.StartLevel, ctx.RNG)}
+	scenery := ctx.Scenery
+	if scenery == nil {
+		scenery = scene.NewSceneryRNG(0)
+	}
+	return &Play{world: world.New(ctx.Session, ctx.StartLevel, ctx.RNG), birds: newFlock(scenery)}
 }
 
 // Native implements scene.Native: the scene draws in either look.
@@ -64,6 +69,7 @@ func (p *Play) Update(ctx *scene.Context) error {
 	}
 	p.drive.step(p.world)
 	p.crew.step(p.world, events)
+	p.birds.step()
 	return nil
 }
 

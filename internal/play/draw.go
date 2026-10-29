@@ -59,6 +59,8 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	w := p.world
 	p.back.draw(dst, pn.k)
 	tick := int(ctx.Tick)
+	// The birds are far off, behind the big gum (DESIGN D27).
+	p.birds.draw(pn, tick)
 	// Koalas going round the back of the trunk pass behind it (DESIGN §5).
 	for i := range w.Koalas {
 		if k := &w.Koalas[i]; k.Behind() {
