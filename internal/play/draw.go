@@ -9,7 +9,6 @@ import (
 
 	"github.com/comprofix/gumtreerescue/internal/art"
 	"github.com/comprofix/gumtreerescue/internal/config"
-	"github.com/comprofix/gumtreerescue/internal/gfx/palettes/resurrect64"
 	"github.com/comprofix/gumtreerescue/internal/scene"
 	"github.com/comprofix/gumtreerescue/internal/shapes"
 	"github.com/comprofix/gumtreerescue/internal/ui"
@@ -78,12 +77,10 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	p.ute.draw(dst, pn.k, ute, p.drive.speed())
 	drawTray(pn, w, ute)
 	drawDust(pn, w, p.drive)
-	late := w.Session.Skill.LateMarker
 	for i := range w.Koalas {
-		k := &w.Koalas[i]
-		// On Hard the marker shows only for a bounce's last third (DESIGN §5).
-		if station, ticks, ok := w.Landing(k); ok && (!late || 3*ticks <= w.Row.BounceTicks) {
-			drawMarker(pn, px(world.StationX(station)))
+		// The tray's shadows are drawn by drawTray, inside its sides.
+		if station, near, ok := marker(w, &w.Koalas[i]); ok && station != w.Row.UteStation {
+			drawMarker(pn, px(world.StationX(station)), float64(config.GroundY)+markerDown, near)
 		}
 	}
 	// Koalas on the ground pass in front of the rangers (DESIGN §5). Lost
@@ -503,6 +500,12 @@ func traySeat(x float64, n int) (float64, float64) {
 func drawTray(p pen, w *world.World, x float64) {
 	deck := float64(config.SheetY)
 	left := x - config.TrayBack
+	// Shadows of koalas coming down into the tray fall on its deck.
+	for i := range w.Koalas {
+		if station, near, ok := marker(w, &w.Koalas[i]); ok && station == w.Row.UteStation {
+			drawMarker(p, x, deck, near)
+		}
+	}
 	n := 0
 	for i := range w.Koalas {
 		if k := &w.Koalas[i]; k.State == world.InTray {
@@ -526,10 +529,25 @@ func drawTray(p pen, w *world.World, x float64) {
 	art.TraySide(art.Pen{Dst: p.dst, K: p.k}.At(x, deck), config.TrayBack, config.Headboard)
 }
 
-// drawMarker is a landing marker on the track below a station.
-func drawMarker(p pen, x float64) {
-	y := float64(config.GroundY + 6)
-	p.poly(resurrect64.Gold, x-6, y, x+6, y, x, y+8)
+// markerDown is how far below the ground's top a landing shadow falls, on
+// the track under the sheet.
+const markerDown = 4
+
+// marker is where k's landing marker goes and how near k is to landing,
+// from 0 just bounced to 1 down; ok is false when none shows. On Hard it
+// shows only for a bounce's last third (DESIGN §5).
+func marker(w *world.World, k *world.Koala) (station int, near float64, ok bool) {
+	station, ticks, ok := w.Landing(k)
+	if !ok || w.Session.Skill.LateMarker && 3*ticks > w.Row.BounceTicks {
+		return 0, 0, false
+	}
+	return station, 1 - float64(ticks)/float64(w.Row.BounceTicks), true
+}
+
+// drawMarker is a landing marker: the shadow of the koala coming down at
+// (x, y), filling in as it comes (DESIGN §8).
+func drawMarker(p pen, x, y, near float64) {
+	art.LandingShadow(art.Pen{Dst: p.dst, K: p.k}.At(x, y), near)
 }
 
 // How the rangers hold the sheet and the joeys, in field pixels: the sheet
