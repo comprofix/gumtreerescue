@@ -10,40 +10,18 @@ import (
 	"github.com/comprofix/gumtreerescue/internal/art"
 	"github.com/comprofix/gumtreerescue/internal/config"
 	"github.com/comprofix/gumtreerescue/internal/scene"
-	"github.com/comprofix/gumtreerescue/internal/shapes"
 	"github.com/comprofix/gumtreerescue/internal/ui"
 	"github.com/comprofix/gumtreerescue/internal/world"
 )
 
-// The play scene's pictures come from package art as they are drawn; the
-// rest are still simple shapes until theirs are (PLAN M4). Every size here
-// is in field pixels.
+// The play scene's pictures come from package art. Every size here is in
+// field pixels.
 
-// pen draws shapes given in field pixels at the shown screen's scale.
+// pen is where the play scene draws: the image, and the shown screen's
+// scale from field pixels.
 type pen struct {
 	dst *ebiten.Image
 	k   float64
-}
-
-func (p pen) rect(x, y, w, h float64, c int) {
-	shapes.FillRect(p.dst, shapes.R(x*p.k, y*p.k, w*p.k, h*p.k), c)
-}
-
-func (p pen) round(x, y, w, h, r float64, c int) {
-	shapes.FillRoundRect(p.dst, shapes.R(x*p.k, y*p.k, w*p.k, h*p.k), r*p.k, c)
-}
-
-func (p pen) circle(x, y, r float64, c int) { shapes.FillCircle(p.dst, x*p.k, y*p.k, r*p.k, c) }
-
-func (p pen) line(x0, y0, x1, y1, w float64, c int) {
-	shapes.Line(p.dst, x0*p.k, y0*p.k, x1*p.k, y1*p.k, w*p.k, c)
-}
-
-func (p pen) poly(c int, pts ...float64) {
-	for i := range pts {
-		pts[i] *= p.k
-	}
-	shapes.FillPoly(p.dst, c, pts...)
 }
 
 // px turns a fixed-point position into field pixels.
