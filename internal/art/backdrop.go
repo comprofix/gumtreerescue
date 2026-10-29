@@ -46,10 +46,10 @@ const (
 // Backdrop draws the country bush behind the play, w by h field pixels
 // with the ground's top at ground (DESIGN §3): the sky with its clouds,
 // the ranges, the paddocks with a farm shed, a tank and a windmill, the
-// koalas' home in the gums about the paddock, the post-and-rail fence, the
-// golden grass and the red dirt track. It is slow to draw, so it is drawn
-// once and kept.
-func Backdrop(p Pen, w, h, ground float64) {
+// koalas' home in the gums about the paddock and the golden grass; then
+// BackdropFront draws the rest over the kangaroos behind the fence. It is
+// slow to draw, so it is drawn once and kept.
+func Backdrop(p Pen, w, ground float64) {
 	skyBands(p, w)
 	for _, c := range [][3]float64{{232, 62, 1}, {455, 44, 1.25}, {598, 86, 0.8}, {350, 118, 0.6}} {
 		cloud(p, c[0], c[1], c[2])
@@ -60,6 +60,12 @@ func Backdrop(p Pen, w, h, ground float64) {
 	for _, g := range BackGums {
 		BackGum(p.At(g.X, g.Y).Sized(g.Size).Mirrored(g.Flip), g.Shape)
 	}
+}
+
+// BackdropFront draws the near part of the backdrop, over what is behind
+// the fence, w by h field pixels with the ground's top at ground: the
+// post-and-rail fence, the tufts of the near grass and the red dirt track.
+func BackdropFront(p Pen, w, h, ground float64) {
 	fence(p, w)
 	tufts(p, w, ground)
 	track(p, w, h, ground)

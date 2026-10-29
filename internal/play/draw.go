@@ -57,8 +57,10 @@ func koalaY(k *world.Koala) float64 { return config.SheetY - px(k.H) }
 func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	pn := pen{dst, scale(ctx)}
 	w := p.world
-	p.back.draw(dst, pn.k)
+	p.back.ready(dst, pn.k)
+	dst.DrawImage(p.back.back, nil)
 	tick := int(ctx.Tick)
+	dst.DrawImage(p.back.front, nil)
 	// The birds are far off, behind the big gum (DESIGN D27).
 	p.birds.draw(pn, tick)
 	// Koalas going round the back of the trunk pass behind it (DESIGN §5).
@@ -139,22 +141,25 @@ func tally(w *world.World) []string {
 }
 
 // backdropCache is the country bush behind the play drawn once at the
-// shown screen's scale, as it is slow to draw (DESIGN §3); Draw lays it.
+// shown screen's scale, as it is slow to draw (DESIGN §3), in two parts:
+// all behind the fence, and the fence and ground in front, with what
+// stands in the paddock behind the fence between them. Draw lays them.
 type backdropCache struct {
-	img *ebiten.Image
-	k   float64
+	back, front *ebiten.Image
+	k           float64
 }
 
-// draw lays the backdrop on dst, drawing it first if the scale or the
-// screen has changed.
-func (c *backdropCache) draw(dst *ebiten.Image, k float64) {
+// ready draws the backdrop's two parts for dst if the scale or the screen
+// has changed.
+func (c *backdropCache) ready(dst *ebiten.Image, k float64) {
 	b := dst.Bounds()
-	if c.img == nil || c.k != k || c.img.Bounds() != b {
-		c.img, c.k = ebiten.NewImage(b.Dx(), b.Dy()), k
-		fw, fh := config.Field()
-		art.Backdrop(art.Pen{Dst: c.img, K: k}, float64(fw), float64(fh), config.GroundY)
+	if c.back != nil && c.k == k && c.back.Bounds() == b {
+		return
 	}
-	dst.DrawImage(c.img, nil)
+	c.back, c.front, c.k = ebiten.NewImage(b.Dx(), b.Dy()), ebiten.NewImage(b.Dx(), b.Dy()), k
+	fw, fh := config.Field()
+	art.Backdrop(art.Pen{Dst: c.back, K: k}, float64(fw), config.GroundY)
+	art.BackdropFront(art.Pen{Dst: c.front, K: k}, float64(fw), float64(fh), config.GroundY)
 }
 
 // treeCache is the gum tree drawn once for a level's drop points at the

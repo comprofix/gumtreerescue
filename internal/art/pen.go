@@ -70,6 +70,16 @@ func (p Pen) At(x, y float64) Pen {
 	return p
 }
 
+// Rel is the pen with its origin moved to (x, y) of the figure it draws,
+// as the pen would draw that point, so part of the figure can be drawn
+// turned further about it. It keeps the pen's size, facing and turn.
+func (p Pen) Rel(x, y float64) Pen {
+	dx, dy := p.local(x, y)
+	q := p.At(p.OX+dx, p.OY+dy)
+	q.pivot = 0
+	return q
+}
+
 // Mirrored is the pen facing the other way when flip is set.
 func (p Pen) Mirrored(flip bool) Pen {
 	p.Flip = p.Flip != flip
@@ -98,6 +108,12 @@ func (p Pen) size() float64 {
 
 // pt is the screen position of (x, y) about the origin.
 func (p Pen) pt(x, y float64) (float32, float32) {
+	x, y = p.local(x, y)
+	return float32((p.OX + x) * p.K), float32((p.OY + y) * p.K)
+}
+
+// local is where (x, y) is drawn from the origin, in field pixels.
+func (p Pen) local(x, y float64) (float64, float64) {
 	s := p.size()
 	if p.sx != 0 {
 		x, y = x*p.sx, y*p.sy
@@ -112,7 +128,7 @@ func (p Pen) pt(x, y float64) (float32, float32) {
 	if p.Flip {
 		x = -x
 	}
-	return float32((p.OX + x) * p.K), float32((p.OY + y) * p.K)
+	return x, y
 }
 
 func (p Pen) path(xy []float64, closed bool) *vector.Path {
