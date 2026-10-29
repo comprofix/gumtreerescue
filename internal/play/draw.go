@@ -57,7 +57,7 @@ func koalaY(k *world.Koala) float64 { return config.SheetY - px(k.H) }
 func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	pn := pen{dst, scale(ctx)}
 	w := p.world
-	drawBackdrop(pn)
+	p.back.draw(dst, pn.k)
 	tick := int(ctx.Tick)
 	// Koalas going round the back of the trunk pass behind it (DESIGN §5).
 	for i := range w.Koalas {
@@ -136,39 +136,23 @@ func tally(w *world.World) []string {
 	return lines
 }
 
-// drawBackdrop is the country bush: sky, clouds, ranges, paddocks, a fence
-// and the red dirt track (DESIGN §3).
-func drawBackdrop(p pen) {
-	fw, fh := config.Field()
-	w, h := float64(fw), float64(fh)
-	p.rect(0, 0, w, h, resurrect64.Sky)
-	for _, c := range [][3]float64{{250, 55, 1}, {470, 40, 1.3}, {590, 80, 0.8}} {
-		x, y, s := c[0], c[1], c[2]
-		p.circle(x, y, 12*s, resurrect64.White)
-		p.circle(x+14*s, y-6*s, 14*s, resurrect64.White)
-		p.circle(x+30*s, y, 11*s, resurrect64.White)
-		p.round(x-10*s, y, 50*s, 10*s, 5*s, resurrect64.White)
+// backdropCache is the country bush behind the play drawn once at the
+// shown screen's scale, as it is slow to draw (DESIGN §3); Draw lays it.
+type backdropCache struct {
+	img *ebiten.Image
+	k   float64
+}
+
+// draw lays the backdrop on dst, drawing it first if the scale or the
+// screen has changed.
+func (c *backdropCache) draw(dst *ebiten.Image, k float64) {
+	b := dst.Bounds()
+	if c.img == nil || c.k != k || c.img.Bounds() != b {
+		c.img, c.k = ebiten.NewImage(b.Dx(), b.Dy()), k
+		fw, fh := config.Field()
+		art.Backdrop(art.Pen{Dst: c.img, K: k}, float64(fw), float64(fh), config.GroundY)
 	}
-	p.poly(resurrect64.Cobalt, 0, 240, 120, 190, 230, 215, 360, 170, 480, 205, 590, 180, w, 200, w, 250, 0, 250)
-	p.rect(0, 238, w, config.GroundY-238, resurrect64.Lime)
-	p.rect(0, 270, w, config.GroundY-270, resurrect64.Moss)
-	// A shed and a windmill in the distance.
-	p.rect(560, 222, 46, 22, resurrect64.Fog)
-	p.poly(resurrect64.Lilac, 554, 224, 583, 208, 612, 224)
-	p.line(530, 244, 534, 196, 2, resurrect64.Lilac)
-	p.line(538, 244, 534, 196, 2, resurrect64.Lilac)
-	for _, d := range [][2]float64{{-12, 0}, {12, 0}, {0, -12}, {0, 12}} {
-		p.line(534, 196, 534+d[0], 196+d[1], 2, resurrect64.Fog)
-	}
-	// The fence.
-	for x := 10.0; x < w; x += 40 {
-		p.rect(x, 252, 4, 26, resurrect64.Bark)
-	}
-	p.rect(0, 256, w, 3, resurrect64.Caramel)
-	p.rect(0, 266, w, 3, resurrect64.Caramel)
-	// The track.
-	p.rect(0, config.GroundY, w, h-config.GroundY, resurrect64.Copper)
-	p.rect(0, config.GroundY, w, 3, resurrect64.Caramel)
+	dst.DrawImage(c.img, nil)
 }
 
 // treeCache is the gum tree drawn once for a level's drop points at the

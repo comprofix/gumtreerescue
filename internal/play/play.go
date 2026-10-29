@@ -22,11 +22,12 @@ var Sounds = audio.Bank{}
 // Play is a game in progress.
 type Play struct {
 	world *world.World
-	mouse bool      // the mouse is steering, until a key or the pad is used
-	tree  treeCache // the gum tree, drawn once a level
-	ute   uteCache  // the ute, drawn once
-	drive driving   // the ute's drive in or off, for its dust and smoke
-	crew  crew      // the rangers' walk and the sheet's give
+	mouse bool          // the mouse is steering, until a key or the pad is used
+	back  backdropCache // the country bush, drawn once
+	tree  treeCache     // the gum tree, drawn once a level
+	ute   uteCache      // the ute, drawn once
+	drive driving       // the ute's drive in or off, for its dust and smoke
+	crew  crew          // the rangers' walk and the sheet's give
 }
 
 // New starts a game at a skill, on the level the -level flag asks for.
