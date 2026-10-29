@@ -99,6 +99,7 @@ func New(seed uint64, saved Saved, synth *audio.Synth) (*Game, error) {
 	g.ctx = &scene.Context{
 		Input:      input.New(&input.Ebiten{}),
 		RNG:        scene.NewRNG(seed),
+		Scenery:    scene.NewSceneryRNG(seed),
 		Looks:      g.looks,
 		PixelFonts: bitmap,
 		Sheets:     sheets,

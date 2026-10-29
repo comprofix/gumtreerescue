@@ -118,6 +118,11 @@ func NewRNG(seed uint64) *rand.Rand {
 	return rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
 }
 
+// NewSceneryRNG is the random number generator for a seed's scenery: from
+// the same seed as NewRNG's, but apart from it, so however much scenery
+// draws from it, the seed plays the same game.
+func NewSceneryRNG(seed uint64) *rand.Rand { return NewRNG(seed ^ 0x5ce9e7a1c0ffee00) }
+
 // Context is the shared state handed to scenes. Games add their own fields.
 type Context struct {
 	Input *input.Input
@@ -164,6 +169,11 @@ type Context struct {
 	// its play scene there. A game started later is a test: it goes on no
 	// high score table.
 	StartLevel int
+
+	// Scenery is the random number generator for scenery that never
+	// touches play, such as wildlife in the background (NewSceneryRNG).
+	// Nil in a test that sets none: scenery then makes its own from seed 0.
+	Scenery *rand.Rand
 
 	pixel           *ebiten.Image // the pixel look's screen, for scenes enlarged in the smooth look; a render cache
 	next            Scene
