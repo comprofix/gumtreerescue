@@ -26,6 +26,7 @@ type Play struct {
 	tree  treeCache // the gum tree, drawn once a level
 	ute   uteCache  // the ute, drawn once
 	drive driving   // the ute's drive in or off, for its dust and smoke
+	crew  crew      // the rangers' walk and the sheet's give
 }
 
 // New starts a game at a skill, on the level the -level flag asks for.
@@ -54,12 +55,14 @@ func (p *Play) Update(ctx *scene.Context) error {
 		ctx.Switch(New(ctx, ctx.Session.Skill))
 		return nil
 	}
-	for _, e := range p.world.Update(p.input(ctx)) {
+	events := p.world.Update(p.input(ctx))
+	for _, e := range events {
 		if e.Kind == world.GameOver {
 			ctx.Cut(newEnded(p))
 		}
 	}
 	p.drive.step(p.world)
+	p.crew.step(p.world, events)
 	return nil
 }
 

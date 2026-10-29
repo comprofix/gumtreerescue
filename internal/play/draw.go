@@ -88,7 +88,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 			drawKoala(pn, w, k, tick)
 		}
 	}
-	drawRangers(pn, w, tick)
+	drawRangers(pn, w, &p.crew, tick)
 	for i := range w.Koalas {
 		if k := &w.Koalas[i]; ground(k) && !(k.Baby && w.Ending > 0) {
 			drawKoala(pn, w, k, tick)
@@ -404,7 +404,7 @@ func rangerAway(w *world.World) (float64, bool) {
 	if w.LostJoeys() == 0 || w.Ending <= half {
 		return 0, false
 	}
-	home := px(w.Sheet) + float64(config.SheetWidth)/2 + float64(config.RangerSide)/2
+	_, home := rangerHomes(w)
 	tree := float64(config.TrunkX + 12)
 	ute := px(w.UteX()) - config.TrayBack - 6
 	c, ok := carrying(w)
@@ -423,9 +423,17 @@ func rangerAway(w *world.World) (float64, bool) {
 
 func lerp(a, b, f float64) float64 { return a + (b-a)*min(max(f, 0), 1) }
 
+// rangerHomes is where the two rangers stand, either side of the sheet.
+func rangerHomes(w *world.World) (left, right float64) {
+	x := px(w.Sheet)
+	off := float64(config.SheetWidth)/2 + float64(config.RangerSide)/2
+	return x - off, x + off
+}
+
 // drawCarried draws the lost joeys during the carry: climbing down to the
-// foot of the tree, waiting there, then in the ranger's arms at x.
-func drawCarried(p pen, w *world.World, x float64, tick int) {
+// foot of the tree, waiting there, then in the arms of the ranger at x,
+// facing left if left.
+func drawCarried(p pen, w *world.World, x float64, left bool, tick int) {
 	c, ok := carrying(w)
 	if !ok || c >= carryPut {
 		return
@@ -448,7 +456,12 @@ func drawCarried(p pen, w *world.World, x float64, tick int) {
 		case c < carryPick:
 			art.Koala(at.At(foot+float64(n)*7, config.GroundY).Sized(art.JoeySize), l)
 		default:
-			art.Koala(at.At(x+3+float64(n)*5, config.GroundY-26).Sized(art.JoeySize), l)
+			// Sitting on her forearms, in front of her.
+			f := 1.0
+			if left {
+				f = -1
+			}
+			art.Koala(at.At(x+f*(4+float64(n)*4), config.GroundY+carryHold).Sized(art.JoeySize), l)
 		}
 		n++
 	}
@@ -520,46 +533,56 @@ func drawMarker(p pen, x float64) {
 	p.poly(resurrect64.Gold, x-6, y, x+6, y, x, y+8)
 }
 
-// drawRangers draws the two rangers holding the sheet, with faint marks
-// between its zones; at a level's end, one may be away carrying lost
-// joeys to the ute (DESIGN §6).
-func drawRangers(p pen, w *world.World, tick int) {
+// How the rangers hold the sheet and the joeys, in field pixels: the sheet
+// sags this far in its middle, and a ranger carrying joeys holds them on
+// her forearms this far above the ground, or picks them up this low.
+const (
+	sheetSag  = 1.5
+	carryHold = -33
+	carryLow  = -20
+)
+
+// drawRangers draws the two rangers, the man on the left and the woman on
+// the right, facing each other and holding up the sheet between them, a
+// seam across it between each of its zones (DESIGN §2, §5); at a level's
+// end she may be away carrying lost joeys to the ute (DESIGN §6).
+func drawRangers(p pen, w *world.World, c *crew, tick int) {
 	x := px(w.Sheet)
 	half := float64(config.SheetWidth) / 2
-	y := float64(config.SheetY)
 	side := float64(config.RangerSide) / 2 // each ranger is RangerSide wide
-	drawRanger(p, x-half-side, false)
+	ground := art.Pen{Dst: p.dst, K: p.k}
+	left, right := rangerHomes(w)
+	hold := float64(art.RangerHold) - sheetSag
+	stance := func(k walker, woman bool, id int) art.Stance {
+		return art.Stance{
+			Woman: woman, HandX: side, HandY: hold,
+			Stride: k.stride, Step: k.step, Shut: (tick+id*89)%230 < 6,
+		}
+	}
+	man := stance(c.man, false, 0)
 	if away, ok := rangerAway(w); ok {
-		drawRanger(p, away, true)
-		drawCarried(p, w, away, tick)
+		// Without her, he lets his arms down to his sides.
+		man.HandX, man.HandY = 2, -29
+		art.Ranger(ground.At(left, config.GroundY), man)
+		woman := stance(c.woman, true, 1)
+		woman.HandX, woman.HandY = 5.5, carryHold
+		if cc, ok := carrying(w); ok && cc >= carryDown && cc < carryPick {
+			woman.HandX, woman.HandY = 6, carryLow
+		}
+		art.Ranger(ground.At(away, config.GroundY).Mirrored(c.woman.left), woman)
+		drawCarried(p, w, away, c.woman.left, tick)
 		return
 	}
-	drawRanger(p, x+half+side, true)
-	p.line(x-half-4, y, x+half+4, y, 3, resurrect64.White)
+	var seams []float64
 	at := x - half
 	for _, z := range []float64{config.ZoneSharp, config.ZoneSafe, config.ZoneCentre, config.ZoneSafe} {
 		at += z
-		p.line(at, y-1.5, at, y+1.5, 1, resurrect64.Fog)
+		seams = append(seams, at)
 	}
-}
-
-// drawRanger is one ranger standing at x, in uniform (DESIGN §2): the
-// woman has a ponytail.
-func drawRanger(p pen, x float64, woman bool) {
-	g := float64(config.GroundY)
-	p.rect(x-5, g-6, 4, 6, resurrect64.Bark)
-	p.rect(x+1, g-6, 4, 6, resurrect64.Bark)
-	p.rect(x-4, g-14, 3, 8, resurrect64.Apricot)
-	p.rect(x+1, g-14, 3, 8, resurrect64.Apricot)
-	p.round(x-6, g-24, 12, 11, 2, resurrect64.Olive)
-	p.round(x-6, g-42, 12, 20, 3, resurrect64.Khaki)
-	p.circle(x, g-48, 6, resurrect64.Apricot)
-	if woman {
-		p.circle(x-6, g-46, 3, resurrect64.Bark)
-	}
-	p.round(x-10, g-53, 20, 3, 1.5, resurrect64.Khaki)
-	p.round(x-5, g-58, 10, 6, 2, resurrect64.Khaki)
-	p.rect(x-5, g-54, 10, 1.5, resurrect64.Pine)
+	dx, dip := c.dip()
+	art.Sheet(ground.At(0, config.SheetY-sheetSag), x-half, x+half, sheetSag, x+dx, dip, seams)
+	art.Ranger(ground.At(left, config.GroundY), man)
+	art.Ranger(ground.At(right, config.GroundY).Mirrored(true), stance(c.woman, true, 1))
 }
 
 // drawHUD is the score line across the top.
