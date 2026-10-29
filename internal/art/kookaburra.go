@@ -18,23 +18,40 @@ const (
 	birdBill  = resurrect64.Sand
 )
 
-// Dizzy draws the dazed effect over a dazed koala, its feet at the pen's
-// origin (DESIGN D24): three mini kookaburras flying round above its head,
-// tick moving them on and flapping their wings. The near ones are drawn a
-// little bigger than the far ones.
-func Dizzy(p Pen, tick int) {
+// DizzyBird is one of the mini kookaburras of the dazed effect: where its
+// middle is from the dazed koala's feet and how big it is, both for a
+// koala of full size, which way it flies, and its wings.
+type DizzyBird struct {
+	X, Y, Size float64
+	Left       bool
+	Wing       float64
+}
+
+// DizzyBirds are the dazed effect's three mini kookaburras at tick (DESIGN
+// D24), flying round above a dazed koala's head, tick moving them on and
+// flapping their wings. The near ones are a little bigger than the far
+// ones.
+func DizzyBirds(tick int) [3]DizzyBird {
 	const (
 		cy, rx, ry = -31.0, 11.0, 2.6 // the ring they fly round
 		speed      = 0.07             // radians a tick
 		flap       = 0.6              // radians a tick
 	)
-	for i := range 3 {
+	var out [3]DizzyBird
+	for i := range out {
 		a := float64(tick)*speed + float64(i)*2*math.Pi/3
 		s, c := math.Sincos(a)
-		near := 0.85 + 0.2*s
 		// Round the front they fly right, round the back left.
-		bird := p.At(p.OX+rx*c*p.size(), p.OY+(cy+ry*s)*p.size()).Sized(near).Mirrored(s < 0)
-		Kookaburra(bird, math.Sin(float64(tick)*flap+float64(i)))
+		out[i] = DizzyBird{X: rx * c, Y: cy + ry*s, Size: 0.85 + 0.2*s, Left: s < 0, Wing: math.Sin(float64(tick)*flap + float64(i))}
+	}
+	return out
+}
+
+// Dizzy draws the dazed effect over a dazed koala, its feet at the pen's
+// origin: the DizzyBirds at tick.
+func Dizzy(p Pen, tick int) {
+	for _, b := range DizzyBirds(tick) {
+		Kookaburra(p.At(p.OX+b.X*p.size(), p.OY+b.Y*p.size()).Sized(b.Size).Mirrored(b.Left), b.Wing)
 	}
 }
 

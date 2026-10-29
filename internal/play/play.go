@@ -29,6 +29,7 @@ type Play struct {
 	drive driving       // the ute's drive in or off, for its dust and smoke
 	crew  crew          // the rangers' walk and the sheet's give
 	birds flock         // the birds about the farm
+	dizzy []ring        // the dazed effects showing last tick
 }
 
 // New starts a game at a skill, on the level the -level flag asks for.
@@ -70,6 +71,9 @@ func (p *Play) Update(ctx *scene.Context) error {
 	p.drive.step(p.world)
 	p.crew.step(p.world, events)
 	p.birds.step()
+	now := rings(p.world, int(ctx.Tick))
+	p.birds.release(p.dizzy, now)
+	p.dizzy = now
 	return nil
 }
 

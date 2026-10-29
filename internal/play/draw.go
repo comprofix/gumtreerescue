@@ -485,6 +485,12 @@ func (c *uteCache) draw(dst *ebiten.Image, k, x, speed float64) {
 	art.UteWheels(art.Pen{Dst: dst, K: k}.At(math.Round(x*k)/k, config.SheetY), config.TrayBack, config.Headboard, art.UteRoll(x), art.UteRoll(speed))
 }
 
+// traySeat is where the nth rescued koala sits in the tray of the ute at
+// x, its feet on the deck: five to a row, the rows stacked.
+func traySeat(x float64, n int) (float64, float64) {
+	return x - config.TrayBack + 9 + float64(n%5)*16, float64(config.SheetY) - float64(n/5)*6
+}
+
 // drawTray is the ute's tray, its station at x, with the rescued koalas in
 // it, drawn after the ute so they sit inside its low sides.
 func drawTray(p pen, w *world.World, x float64) {
@@ -493,7 +499,7 @@ func drawTray(p pen, w *world.World, x float64) {
 	n := 0
 	for i := range w.Koalas {
 		if k := &w.Koalas[i]; k.State == world.InTray {
-			a := art.Pen{Dst: p.dst, K: p.k}.At(left+9+float64(n%5)*16, deck-float64(n/5)*6)
+			a := art.Pen{Dst: p.dst, K: p.k}.At(traySeat(x, n))
 			l := art.Look{Joey: k.Joey}
 			if k.Bonked && k.Timer > 0 {
 				art.Dazed(a, l)

@@ -6,6 +6,7 @@ import (
 	"github.com/comprofix/gumtreerescue/internal/art"
 	"github.com/comprofix/gumtreerescue/internal/config"
 	"github.com/comprofix/gumtreerescue/internal/scene"
+	"github.com/comprofix/gumtreerescue/internal/world"
 )
 
 // TestFlock runs the birds for ten minutes: no two ever sit on or fly to
@@ -105,6 +106,46 @@ func TestFlockMakesRoom(t *testing.T) {
 		if len(f.birds) != n {
 			t.Fatalf("%d birds for %d perches after making room", len(f.birds), n)
 		}
+	}
+}
+
+// TestDizzyBirdsFlyOff dazes a koala on the ground and bonks one into the
+// tray: while they are dazed their mini kookaburras circle them, and as
+// each daze ends its three fly off from round its head to perches, never
+// just vanishing (DESIGN D24).
+func TestDizzyBirdsFlyOff(t *testing.T) {
+	h, p := start(t, 4)
+	w := p.World()
+	h.Ticks(w.Starting) // past the level's intro, when koalas are held still
+	floor := -config.SheetHeight * config.SubPx
+	ground := world.Koala{State: world.Dazed, X: 300 * config.SubPx, H: floor, Timer: 10, ID: 90}
+	tray := world.Koala{State: world.InTray, Bonked: true, Timer: 40, ID: 91}
+	w.Koalas = append(w.Koalas, ground, tray)
+	h.Ticks(1)
+	if len(p.dizzy) != 2 {
+		t.Fatalf("%d dazed effects showing, want 2", len(p.dizzy))
+	}
+	kookas := func() (n int) {
+		for _, b := range p.birds.birds {
+			if b.kind == art.Kooka && b.state == flying && b.t < 5 {
+				n++
+			}
+		}
+		return n
+	}
+	before := len(p.birds.birds)
+	h.Ticks(12)
+	if got := len(p.birds.birds) - before; got != 3 || kookas() != 3 {
+		t.Fatalf("%d birds came and %d kookaburras took off as the ground daze ended, want 3", got, kookas())
+	}
+	for _, b := range p.birds.birds[before:] {
+		if b.at < 0 || b.x0 < 300-15 || b.x0 > 300+15 || b.y0 > koalaY(&ground)-20 {
+			t.Fatalf("a dazed bird took off from (%.1f, %.1f) for perch %d", b.x0, b.y0, b.at)
+		}
+	}
+	h.Ticks(40)
+	if len(p.dizzy) != 0 || len(p.birds.birds)-before != 6 {
+		t.Fatalf("%d effects left and %d birds came, want 0 and 6", len(p.dizzy), len(p.birds.birds)-before)
 	}
 }
 
