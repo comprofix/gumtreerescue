@@ -66,7 +66,7 @@ const (
 // drawDust draws the dust the ute kicks up from the track and leaves
 // behind it as it drives in or off (DESIGN §2), in front of it.
 func drawDust(p pen, w *world.World, d driving) {
-	pn := art.Pen{Dst: p.dst, K: p.k}
+	pn := p.art()
 	park := px(w.UteX())
 	ground := float64(config.SheetY + art.UteWheel)
 	tyres := [2]float64{}
@@ -98,7 +98,7 @@ func drawDust(p pen, w *world.World, d driving) {
 // drawSmoke draws the smoke from the ute's exhaust as it drives, with a
 // burst as it pulls away to drive off (DESIGN §2), behind it.
 func drawSmoke(p pen, w *world.World, d driving) {
-	pn := art.Pen{Dst: p.dst, K: p.k}
+	pn := p.art()
 	park := px(w.UteX())
 	ex, ey := art.UteExhaust(config.TrayBack, config.Headboard)
 	for i := max(0, (d.t-smokeLife)/smokeEvery); i*smokeEvery <= d.t; i++ {

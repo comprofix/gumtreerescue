@@ -584,7 +584,7 @@ func marker(w *world.World, k *world.Koala) (station int, near float64, ok bool)
 // drawMarker is a landing marker: the shadow of the koala coming down at
 // (x, y), filling in as it comes (DESIGN §8).
 func drawMarker(p pen, x, y, near float64) {
-	art.LandingShadow(art.Pen{Dst: p.dst, K: p.k}.At(x, y), near)
+	art.LandingShadow(p.art().At(x, y), near)
 }
 
 // How the rangers hold the sheet and the joeys, in field pixels: the sheet
