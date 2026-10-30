@@ -10,7 +10,18 @@ import (
 type ring struct {
 	id    int
 	baby  bool
+	tray  bool // over a koala in the tray, not on the ground
 	birds [3]struct{ x, y, s float64 }
+}
+
+// in reports whether r's daze is among rings.
+func (r ring) in(rings []ring) bool {
+	for _, o := range rings {
+		if o.id == r.id && o.baby == r.baby {
+			return true
+		}
+	}
+	return false
 }
 
 // rings are the dazed effects showing over w's koalas at tick, as drawKoala
@@ -19,7 +30,7 @@ type ring struct {
 func rings(w *world.World, tick int) []ring {
 	var out []ring
 	add := func(k *world.Koala, x, y, size float64, t int) {
-		r := ring{id: k.ID, baby: k.Baby}
+		r := ring{id: k.ID, baby: k.Baby, tray: k.State == world.InTray}
 		for i, b := range art.DizzyBirds(t) {
 			r.birds[i].x, r.birds[i].y, r.birds[i].s = x+b.X*size, y+b.Y*size, b.Size*size
 		}
@@ -52,13 +63,7 @@ func rings(w *world.World, tick int) []ring {
 // over, and they never just vanish.
 func (f *flock) release(was, now []ring) {
 	for _, r := range was {
-		over := true
-		for _, n := range now {
-			if n.id == r.id && n.baby == r.baby {
-				over = false
-			}
-		}
-		if !over {
+		if r.in(now) {
 			continue
 		}
 		for _, b := range r.birds {

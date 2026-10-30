@@ -9,5 +9,7 @@ func init() {
 		NewPlay:    play.New,
 		NativePlay: true,
 		Sounds:     play.Sounds,
+		TitleTune:  play.TitleTune,
+		ScoresTune: play.ScoresTune,
 	}
 }

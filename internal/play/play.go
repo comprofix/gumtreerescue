@@ -7,17 +7,12 @@ package play
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/comprofix/gumtreerescue/internal/audio"
 	"github.com/comprofix/gumtreerescue/internal/config"
 	"github.com/comprofix/gumtreerescue/internal/input"
 	"github.com/comprofix/gumtreerescue/internal/scene"
 	"github.com/comprofix/gumtreerescue/internal/session"
 	"github.com/comprofix/gumtreerescue/internal/world"
 )
-
-// Sounds are the game's sounds, for the sound test. They come with the
-// audio (PLAN M5).
-var Sounds = audio.Bank{}
 
 // Play is a game in progress.
 type Play struct {
@@ -31,6 +26,7 @@ type Play struct {
 	birds flock         // the birds about the farm
 	roos  mob           // the kangaroos behind the fence
 	dizzy []ring        // the dazed effects showing last tick
+	sound sounder       // picks the sounds
 }
 
 // New starts a game at a skill, on the level the -level flag asks for.
@@ -40,7 +36,10 @@ func New(ctx *scene.Context, skill config.Skill) scene.Scene {
 	if scenery == nil {
 		scenery = scene.NewSceneryRNG(0)
 	}
-	return &Play{world: world.New(ctx.Session, ctx.StartLevel, ctx.RNG), birds: newFlock(scenery), roos: newMob(scenery)}
+	p := &Play{world: world.New(ctx.Session, ctx.StartLevel, ctx.RNG), birds: newFlock(scenery), roos: newMob(scenery)}
+	p.sound = newSounder(scenery)
+	ctx.Audio.PlayTune(LevelStartTune) // no music in play, so the title tune stops (DESIGN §3)
+	return p
 }
 
 // Native implements scene.Native: the scene draws in either look.
@@ -75,7 +74,14 @@ func (p *Play) Update(ctx *scene.Context) error {
 	p.roos.step()
 	now := rings(p.world, int(ctx.Tick))
 	p.birds.release(p.dizzy, now)
+	tune, fx := p.sound.step(p.world, events, &p.crew, p.drive, &p.birds, p.dizzy, now)
 	p.dizzy = now
+	if tune != nil {
+		ctx.Audio.PlayTune(tune)
+	}
+	for _, e := range fx {
+		ctx.Audio.PlayEffect(e)
+	}
 	return nil
 }
 
