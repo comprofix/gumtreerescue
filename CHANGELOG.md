@@ -5,6 +5,16 @@ All notable changes to this game are listed here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/comprofix/gumtreerescue/compare/v1.0.0...v1.1.0) - 2026-10-30
+
+### Added
+
+- A lace monitor and a carpet python now and then wander the red dirt
+  track. The monitor walks back and forth, stopping to taste the air with
+  its tongue; the python slithers along, sometimes curling up to sunbake.
+  Both wander off the screen and come back later. They are scenery only,
+  in both looks, and never touch play.
+
 ## [1.0.0](https://github.com/comprofix/gumtreerescue/commits/v1.0.0) - 2026-10-30
 
 The first release of Gum Tree Rescue: koalas fall from a gum tree, and
