@@ -7,7 +7,7 @@ import (
 )
 
 // The backdrop's layout, in field pixels from the top (DESIGN §3): where
-// the paddocks meet the ranges, and the fence's posts and rails.
+// the paddocks meet the escarpments, and the fence's posts and rails.
 const (
 	Horizon   = 232
 	FenceTop  = 250 // the tops of the posts
@@ -17,16 +17,14 @@ const (
 )
 
 // The backdrop's colours (DESIGN §3): a blue sky hazing pale at the
-// horizon, blue-grey ranges, golden paddocks, weathered grey timber and
-// red dirt.
+// horizon, blue haze on the far hills, golden paddocks, weathered grey
+// timber and red dirt.
 const (
 	sky       = resurrect64.Sky
 	skyHigh   = resurrect64.Blue
 	cloudLit  = resurrect64.White
 	cloudDark = resurrect64.Mist
 	rangeFar  = resurrect64.Blue
-	rangeNear = resurrect64.Cobalt
-	rangeDark = resurrect64.Indigo
 	bush      = resurrect64.Sage
 	bushDark  = resurrect64.Slate
 	grass     = resurrect64.Honey
@@ -44,17 +42,14 @@ const (
 )
 
 // Backdrop draws the country bush behind the play, w by h field pixels
-// with the ground's top at ground (DESIGN §3): the sky with its clouds,
-// the ranges, the paddocks with a farm shed, a tank and a windmill, the
-// koalas' home in the gums about the paddock and the golden grass; then
-// BackdropFront draws the rest over the kangaroos behind the fence. It is
-// slow to draw, so it is drawn once and kept.
+// with the ground's top at ground (DESIGN §3): the escarpments, the
+// paddocks with a farm shed, a tank and a windmill, the koalas' home in
+// the gums about the paddock and the golden grass; then BackdropFront
+// draws the rest over the kangaroos behind the fence. The sky is left
+// clear, for Sky behind it, as it changes through the day (DESIGN D34).
+// It is slow to draw, so it is drawn once and kept.
 func Backdrop(p Pen, w, ground float64) {
-	skyBands(p, w)
-	for _, c := range [][3]float64{{232, 62, 1}, {455, 44, 1.25}, {598, 86, 0.8}, {350, 118, 0.6}} {
-		cloud(p, c[0], c[1], c[2])
-	}
-	ranges(p, w)
+	mesas(p, w)
 	paddocks(p, w, ground)
 	farm(p.Faded(0.9))
 	for _, g := range BackGums {
@@ -92,70 +87,11 @@ func haze(p Pen, c int, w, y0, y1, a float64) {
 	}
 }
 
-// skyBands draws the sky: deep blue at the top, blending to sky blue, then
-// to a pale haze at the horizon.
-func skyBands(p Pen, w float64) {
-	strip(p, sky, w, 0, Horizon)
-	const step = 2.0
-	for y := 0.0; y < Horizon; y += step {
-		if f := 1 - y/130; f > 0 {
-			haze(p, skyHigh, w, y, y+step, 0.75*f*f)
-		}
-		if f := (y - 140) / (Horizon - 140); f > 0 {
-			haze(p, cloudLit, w, y, y+step, 0.55*f*f)
-		}
-	}
-}
-
-// cloud draws a white cloud about (x, y), s times full size: round puffs
-// over a flat base, shaded underneath.
-func cloud(p Pen, x, y, s float64) {
-	puffs := [][3]float64{{-22, 2, 9}, {-9, -5, 13}, {7, -9, 15}, {22, -2, 11}, {33, 3, 7}}
-	q := func(v float64) float64 { return v * s }
-	for _, f := range puffs {
-		p.Circle(x+q(f[0]), y+q(f[1])+q(1.6), q(f[2]), cloudDark)
-	}
-	p.Poly(cloudDark, x-q(28), y+q(4), x+q(38), y+q(4), x+q(36), y+q(10.6), x-q(26), y+q(10.6))
-	for _, f := range puffs {
-		p.Circle(x+q(f[0]), y+q(f[1]), q(f[2]), cloudLit)
-	}
-	p.Poly(cloudLit, x-q(27), y+q(3), x+q(36), y+q(3), x+q(34), y+q(8.6), x-q(25), y+q(8.6))
-	p.Faded(0.5).Curve(sky, q(1.2), x-q(14), y+q(1), x-q(4), y-q(1.5), x+q(6), y)
-}
-
 // ridge fills from the smooth line through the x, y pairs down to bottom.
 func ridge(p Pen, c int, bottom float64, xy ...float64) {
 	pts := curve(xy, false)
 	pts = append(pts, pts[len(pts)-2], bottom, pts[0], bottom)
 	p.Poly(c, pts...)
-}
-
-// ranges draws the blue-grey ranges along the horizon: a far line hazed
-// by the air, a nearer one shaded on its slopes, and the bush at their
-// feet.
-func ranges(p Pen, w float64) {
-	ridge(p.Faded(0.45), rangeFar, Horizon, -10, 200, 60, 186, 130, 196, 210, 178, 300, 192, 380, 172, 470, 190, 540, 180, 610, 194, w+10, 184)
-	near := []float64{-10, 214, 70, 204, 150, 214, 250, 194, 330, 210, 420, 200, 500, 214, 580, 202, w + 10, 210}
-	// Over the sky's haze, solid enough that it does not show through.
-	ridge(p.Faded(0.6), sky, Horizon, near...)
-	ridge(p.Faded(0.8), rangeNear, Horizon, near...)
-	// The shaded sides of the near peaks, down to the right.
-	for i := 2; i+3 < len(near); i += 2 {
-		x, y, nx, ny := near[i], near[i+1], near[i+2], near[i+3]
-		if ny > y {
-			p.Faded(0.35).Poly(rangeDark, x, y+0.5, nx, ny, nx-6, Horizon, x+8, Horizon)
-		}
-	}
-	// Haze at their feet, and the bush along it.
-	for y := 218.0; y < Horizon; y += 2 {
-		haze(p, cloudLit, w, y, y+2, 0.1*(y-218)/14)
-	}
-	for i := 0; i < 110; i++ {
-		x := float64(i)*w/110 + 6*noise(i)
-		r := 2 + 3*noise(i+100)
-		p.Faded(0.8).Ellipse(x, Horizon-r*0.5, r*1.3, r, 0, bushDark)
-		p.Faded(0.8).Ellipse(x-0.4, Horizon-r*0.6-0.4, r*1.1, r*0.8, 0, bush)
-	}
 }
 
 // paddocks draws the fields from the horizon to the ground: a patchwork
