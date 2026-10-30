@@ -27,6 +27,7 @@ type pen struct {
 	rangers  *gfx.Sheet // nil in the smooth look
 	tree     *gfx.Sheet // nil in the smooth look
 	backdrop *gfx.Sheet // nil in the smooth look
+	fauna    *gfx.Sheet // nil in the smooth look
 }
 
 // art is an art pen drawing on p's image, with hard pixels in the pixel
@@ -44,7 +45,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	pn := pen{dst: dst, k: scale(ctx)}
 	if ctx.Preset.Art == config.ArtPixel {
 		pn.koalas, pn.rangers, pn.tree = ctx.Sheet("koala"), ctx.Sheet("ranger"), ctx.Sheet("tree")
-		pn.backdrop = ctx.Sheet("backdrop")
+		pn.backdrop, pn.fauna = ctx.Sheet("backdrop"), ctx.Sheet("fauna")
 	}
 	w := p.world
 	p.back.ready(pn)
@@ -334,11 +335,11 @@ func drawKoala(p pen, w *world.World, k *world.Koala, tick int) {
 	}
 	p.drawKoalaPose(x, y, kp)
 	if k.State == world.Dazed {
-		a := art.Pen{Dst: p.dst, K: p.k}.At(x, y)
+		s := 1.0
 		if k.Baby {
-			a = a.Sized(art.JoeySize)
+			s = art.JoeySize
 		}
-		art.Dizzy(a, tick)
+		p.drawDizzy(x, y, s, tick)
 	}
 }
 
@@ -534,7 +535,7 @@ func drawTray(p pen, w *world.World, x float64) {
 			}
 			p.drawKoalaPose(sx, sy, kp)
 			if kp.kind == kDazed {
-				art.Dizzy(art.Pen{Dst: p.dst, K: p.k}.At(sx, sy), k.Timer)
+				p.drawDizzy(sx, sy, 1, k.Timer)
 			}
 			n++
 		}

@@ -204,6 +204,11 @@ func (m *mob) draw(p pen, tick int) {
 			look.Hop = float64(r.t) / float64(r.hopTime())
 			y -= hopHigh * r.size * art.HopLift(look.Hop)
 		}
+		if p.fauna != nil {
+			name, f := rooSprite(r.size, r.pouch, look)
+			drawCentred(p.dst, p.fauna, name, f, r.x, y, r.left)
+			continue
+		}
 		art.Kangaroo(art.Pen{Dst: p.dst, K: p.k}.At(r.x, y).Sized(r.size).Mirrored(r.left), look)
 	}
 }

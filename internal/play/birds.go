@@ -223,10 +223,21 @@ func (f *flock) draw(p pen, tick int) {
 			if t := (tick + b.id*71) % (150 + b.id*23); t < 24 {
 				bob = math.Sin(math.Pi * float64(t) / 24)
 			}
+			if p.fauna != nil {
+				name, i := birdSprite(b.kind, at.Size, false, bob, 0)
+				drawCentred(p.dst, p.fauna, name, i, at.X, at.Y, b.left)
+				continue
+			}
 			art.Perched(a.At(at.X, at.Y).Sized(at.Size).Mirrored(b.left), b.kind, bob)
 		case flying:
 			x, y, s := b.where()
-			art.Flying(a.At(x, y).Sized(s).Mirrored(b.left), b.kind, math.Sin(float64(b.t)*0.55+float64(b.id)))
+			wing := math.Sin(float64(b.t)*0.55 + float64(b.id))
+			if p.fauna != nil {
+				name, i := birdSprite(b.kind, s, true, 0, wing)
+				drawCentred(p.dst, p.fauna, name, i, x, y, b.left)
+				continue
+			}
+			art.Flying(a.At(x, y).Sized(s).Mirrored(b.left), b.kind, wing)
 		}
 	}
 }

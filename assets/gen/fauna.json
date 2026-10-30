@@ -1,0 +1,219 @@
+{
+  "bird_cocky_fly_100": {
+    "x": 0,
+    "y": 152,
+    "w": 12,
+    "h": 10,
+    "frames": 4
+  },
+  "bird_cocky_fly_60": {
+    "x": 0,
+    "y": 92,
+    "w": 8,
+    "h": 6,
+    "frames": 4
+  },
+  "bird_cocky_fly_80": {
+    "x": 0,
+    "y": 118,
+    "w": 10,
+    "h": 8,
+    "frames": 4
+  },
+  "bird_cocky_perch_100": {
+    "x": 0,
+    "y": 126,
+    "w": 8,
+    "h": 26,
+    "frames": 2
+  },
+  "bird_cocky_perch_60": {
+    "x": 0,
+    "y": 76,
+    "w": 6,
+    "h": 16,
+    "frames": 2
+  },
+  "bird_cocky_perch_80": {
+    "x": 0,
+    "y": 98,
+    "w": 6,
+    "h": 20,
+    "frames": 2
+  },
+  "bird_kooka_fly_100": {
+    "x": 0,
+    "y": 66,
+    "w": 12,
+    "h": 10,
+    "frames": 4
+  },
+  "bird_kooka_fly_60": {
+    "x": 0,
+    "y": 14,
+    "w": 8,
+    "h": 4,
+    "frames": 4
+  },
+  "bird_kooka_fly_80": {
+    "x": 0,
+    "y": 36,
+    "w": 10,
+    "h": 8,
+    "frames": 4
+  },
+  "bird_kooka_perch_100": {
+    "x": 0,
+    "y": 44,
+    "w": 10,
+    "h": 22,
+    "frames": 2
+  },
+  "bird_kooka_perch_60": {
+    "x": 0,
+    "y": 0,
+    "w": 6,
+    "h": 14,
+    "frames": 2
+  },
+  "bird_kooka_perch_80": {
+    "x": 0,
+    "y": 18,
+    "w": 8,
+    "h": 18,
+    "frames": 2
+  },
+  "bird_magpie_fly_100": {
+    "x": 0,
+    "y": 224,
+    "w": 12,
+    "h": 10,
+    "frames": 4
+  },
+  "bird_magpie_fly_60": {
+    "x": 0,
+    "y": 174,
+    "w": 8,
+    "h": 6,
+    "frames": 4
+  },
+  "bird_magpie_fly_80": {
+    "x": 0,
+    "y": 196,
+    "w": 10,
+    "h": 8,
+    "frames": 4
+  },
+  "bird_magpie_perch_100": {
+    "x": 0,
+    "y": 204,
+    "w": 10,
+    "h": 20,
+    "frames": 2
+  },
+  "bird_magpie_perch_60": {
+    "x": 0,
+    "y": 162,
+    "w": 6,
+    "h": 12,
+    "frames": 2
+  },
+  "bird_magpie_perch_80": {
+    "x": 0,
+    "y": 180,
+    "w": 8,
+    "h": 16,
+    "frames": 2
+  },
+  "dizzy_100": {
+    "x": 0,
+    "y": 248,
+    "w": 12,
+    "h": 10,
+    "frames": 4
+  },
+  "dizzy_40": {
+    "x": 0,
+    "y": 234,
+    "w": 4,
+    "h": 2,
+    "frames": 4
+  },
+  "dizzy_60": {
+    "x": 0,
+    "y": 236,
+    "w": 8,
+    "h": 4,
+    "frames": 4
+  },
+  "dizzy_80": {
+    "x": 0,
+    "y": 240,
+    "w": 10,
+    "h": 8,
+    "frames": 4
+  },
+  "roo_hop": {
+    "x": 0,
+    "y": 370,
+    "w": 44,
+    "h": 48,
+    "frames": 8
+  },
+  "roo_joey_hop": {
+    "x": 0,
+    "y": 638,
+    "w": 22,
+    "h": 24,
+    "frames": 8
+  },
+  "roo_joey_sit": {
+    "x": 0,
+    "y": 578,
+    "w": 22,
+    "h": 30,
+    "frames": 6
+  },
+  "roo_joey_sit_flick": {
+    "x": 0,
+    "y": 608,
+    "w": 22,
+    "h": 30,
+    "frames": 6
+  },
+  "roo_pouch_hop": {
+    "x": 0,
+    "y": 530,
+    "w": 44,
+    "h": 48,
+    "frames": 8
+  },
+  "roo_pouch_sit": {
+    "x": 0,
+    "y": 418,
+    "w": 42,
+    "h": 56,
+    "frames": 6
+  },
+  "roo_pouch_sit_flick": {
+    "x": 0,
+    "y": 474,
+    "w": 42,
+    "h": 56,
+    "frames": 6
+  },
+  "roo_sit": {
+    "x": 0,
+    "y": 258,
+    "w": 42,
+    "h": 56,
+    "frames": 6
+  },
+  "roo_sit_flick": {
+    "x": 0,
+    "y": 314,
+    "w": 42,
+    "h": 56,
+    "frames": 6
+  }
+}
