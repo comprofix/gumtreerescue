@@ -27,6 +27,7 @@ type Play struct {
 	crew  crew          // the rangers' walk and the sheet's give
 	birds flock         // the birds about the farm
 	roos  mob           // the kangaroos behind the fence
+	track reptiles      // the lace monitor and the carpet python on the track
 	dizzy []ring        // the dazed effects showing last tick
 	sound sounder       // picks the sounds
 
@@ -64,7 +65,7 @@ func sceneryRNG(ctx *scene.Context) *rand.Rand {
 
 // newPlay is a play scene for w, its scenery placed by scenery.
 func newPlay(scenery *rand.Rand, w *world.World) *Play {
-	p := &Play{world: w, birds: newFlock(scenery), roos: newMob(scenery)}
+	p := &Play{world: w, birds: newFlock(scenery), roos: newMob(scenery), track: newReptiles(scenery)}
 	p.sound = newSounder(scenery)
 	return p
 }
@@ -115,6 +116,7 @@ func (p *Play) Update(ctx *scene.Context) error {
 	p.crew.step(p.world, events)
 	p.birds.step()
 	p.roos.step()
+	p.track.step()
 	now := rings(p.world, int(ctx.Tick))
 	p.birds.release(p.dizzy, now)
 	if p.demo != nil {

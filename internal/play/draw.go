@@ -88,6 +88,8 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 			drawKoala(pn, w, k, tick)
 		}
 	}
+	// The reptiles wander the track in front of everything (DESIGN D32).
+	p.track.draw(pn)
 	drawHUD(ctx, dst, w)
 	switch {
 	case w.Starting > 0:
