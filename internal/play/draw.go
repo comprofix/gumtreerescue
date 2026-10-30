@@ -21,11 +21,12 @@ import (
 // pen is where the play scene draws: the image, the shown screen's scale
 // from field pixels, and in the pixel look the sprites (DESIGN §3, D30).
 type pen struct {
-	dst     *ebiten.Image
-	k       float64
-	koalas  *gfx.Sheet // nil in the smooth look
-	rangers *gfx.Sheet // nil in the smooth look
-	tree    *gfx.Sheet // nil in the smooth look
+	dst      *ebiten.Image
+	k        float64
+	koalas   *gfx.Sheet // nil in the smooth look
+	rangers  *gfx.Sheet // nil in the smooth look
+	tree     *gfx.Sheet // nil in the smooth look
+	backdrop *gfx.Sheet // nil in the smooth look
 }
 
 // art is an art pen drawing on p's image, with hard pixels in the pixel
@@ -43,9 +44,10 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	pn := pen{dst: dst, k: scale(ctx)}
 	if ctx.Preset.Art == config.ArtPixel {
 		pn.koalas, pn.rangers, pn.tree = ctx.Sheet("koala"), ctx.Sheet("ranger"), ctx.Sheet("tree")
+		pn.backdrop = ctx.Sheet("backdrop")
 	}
 	w := p.world
-	p.back.ready(dst, pn.k)
+	p.back.ready(pn)
 	dst.DrawImage(p.back.back, nil)
 	tick := int(ctx.Tick)
 	// The kangaroos are in the paddock behind the fence (DESIGN D27).
@@ -135,14 +137,25 @@ type backdropCache struct {
 	k           float64
 }
 
-// ready draws the backdrop's two parts for dst if the scale or the screen
-// has changed.
-func (c *backdropCache) ready(dst *ebiten.Image, k float64) {
+// backdropFrontY is how far down the field the pixel backdrop's front part
+// starts (DESIGN D30).
+const backdropFrontY = 249
+
+// ready draws the backdrop's two parts for p's image if the scale or the
+// screen has changed: from sprites in the pixel look, in shapes in the
+// smooth one.
+func (c *backdropCache) ready(p pen) {
+	dst, k := p.dst, p.k
 	b := dst.Bounds()
 	if c.back != nil && c.k == k && c.back.Bounds() == b {
 		return
 	}
 	c.back, c.front, c.k = ebiten.NewImage(b.Dx(), b.Dy()), ebiten.NewImage(b.Dx(), b.Dy()), k
+	if p.backdrop != nil {
+		p.backdrop.Sprite("backdrop_back").Draw(c.back, 0, 0, 0, false)
+		p.backdrop.Sprite("backdrop_front").Draw(c.front, 0, 0, backdropFrontY, false)
+		return
+	}
 	fw, fh := config.Field()
 	art.Backdrop(art.Pen{Dst: c.back, K: k}, float64(fw), config.GroundY)
 	art.BackdropFront(art.Pen{Dst: c.front, K: k}, float64(fw), float64(fh), config.GroundY)

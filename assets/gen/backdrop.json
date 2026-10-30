@@ -1,0 +1,16 @@
+{
+  "backdrop_back": {
+    "x": 0,
+    "y": 0,
+    "w": 640,
+    "h": 330,
+    "frames": 1
+  },
+  "backdrop_front": {
+    "x": 0,
+    "y": 330,
+    "w": 640,
+    "h": 111,
+    "frames": 1
+  }
+}
