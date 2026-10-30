@@ -13,9 +13,11 @@ type Gum struct {
 	Flip  bool    // mirrored, so no two look the same
 }
 
-// BackGums are the gums about the paddock: one tall and one small to the
-// right of the big gum, one in the middle and one short of the windmill.
+// BackGums are the gums about the paddock: a small one in the farmland behind
+// the big gum, one tall and one small to its right, one in the middle and
+// one short of the windmill.
 var BackGums = []Gum{
+	{X: 150, Y: 246, Size: 0.75, Shape: 1},
 	{X: 236, Y: 247, Size: 1.05, Shape: 0},
 	{X: 292, Y: 246, Size: 0.7, Shape: 1, Flip: true},
 	{X: 452, Y: 245, Size: 0.9, Shape: 1},

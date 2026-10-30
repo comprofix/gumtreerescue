@@ -44,7 +44,7 @@ const (
 // Backdrop draws the country bush behind the play, w by h field pixels
 // with the ground's top at ground (DESIGN §3): the escarpments, the
 // paddocks with a farm shed, a tank and a windmill, the koalas' home in
-// the gums about the paddock and the golden grass; then BackdropFront
+// the gums about the paddock, cows and the golden grass; then BackdropFront
 // draws the rest over the kangaroos behind the fence. The sky is left
 // clear, for Sky behind it, as it changes through the day (DESIGN D34).
 // It is slow to draw, so it is drawn once and kept.
@@ -54,6 +54,9 @@ func Backdrop(p Pen, w, ground float64) {
 	farm(p.Faded(0.9))
 	for _, g := range BackGums {
 		BackGum(p.At(g.X, g.Y).Sized(g.Size).Mirrored(g.Flip), g.Shape)
+	}
+	for _, c := range Cows {
+		DrawCow(p.At(c.X, c.Y).Sized(c.Size).Mirrored(c.Flip), c)
 	}
 }
 
