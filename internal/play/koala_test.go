@@ -9,10 +9,10 @@ import (
 	"github.com/comprofix/gumtreerescue/internal/art"
 )
 
-// koalaSheet is the koala sheet's index: each sprite's size and frames.
-func koalaSheet(t *testing.T) map[string]struct{ W, H, Frames int } {
+// sheetIndex is a generated sheet's index: each sprite's size and frames.
+func sheetIndex(t *testing.T, name string) map[string]struct{ W, H, Frames int } {
 	t.Helper()
-	data, err := assets.FS.ReadFile("gen/koala.json")
+	data, err := assets.FS.ReadFile("gen/" + name + ".json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func koalaSheet(t *testing.T) map[string]struct{ W, H, Frames int } {
 // Every pose, in every look, finds its sprite and frame in the sheet, with
 // its feet inside it (DESIGN D30).
 func TestKoalaSprites(t *testing.T) {
-	index := koalaSheet(t)
+	index := sheetIndex(t, "koala")
 	looks := []art.Look{{}, {Shut: true}, {Flick: 1}, {Joey: true}, {Joey: true, Shut: true}}
 	for kind := kSit; kind <= kFall; kind++ {
 		for _, l := range looks {

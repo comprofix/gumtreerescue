@@ -21,10 +21,15 @@ import (
 // pen is where the play scene draws: the image, the shown screen's scale
 // from field pixels, and in the pixel look the sprites (DESIGN §3, D30).
 type pen struct {
-	dst    *ebiten.Image
-	k      float64
-	koalas *gfx.Sheet // nil in the smooth look
+	dst     *ebiten.Image
+	k       float64
+	koalas  *gfx.Sheet // nil in the smooth look
+	rangers *gfx.Sheet // nil in the smooth look
 }
+
+// art is an art pen drawing on p's image, with hard pixels in the pixel
+// look (DESIGN D30).
+func (p pen) art() art.Pen { return art.Pen{Dst: p.dst, K: p.k, Hard: p.koalas != nil} }
 
 // px turns a fixed-point position into field pixels.
 func px(v int) float64 { return float64(v) / config.SubPx }
@@ -36,7 +41,7 @@ func koalaY(k *world.Koala) float64 { return config.SheetY - px(k.H) }
 func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	pn := pen{dst: dst, k: scale(ctx)}
 	if ctx.Preset.Art == config.ArtPixel {
-		pn.koalas = ctx.Sheet("koala")
+		pn.koalas, pn.rangers = ctx.Sheet("koala"), ctx.Sheet("ranger")
 	}
 	w := p.world
 	p.back.ready(dst, pn.k)
@@ -560,7 +565,7 @@ func drawRangers(p pen, w *world.World, c *crew, tick int) {
 	x := px(w.Sheet)
 	half := float64(config.SheetWidth) / 2
 	side := float64(config.RangerSide) / 2 // each ranger is RangerSide wide
-	ground := art.Pen{Dst: p.dst, K: p.k}
+	ground := p.art()
 	left, right := rangerHomes(w)
 	hold := float64(art.RangerHold) - sheetSag
 	stance := func(k walker, woman bool, id int) art.Stance {
@@ -573,13 +578,15 @@ func drawRangers(p pen, w *world.World, c *crew, tick int) {
 	if away, ok := rangerAway(w); ok {
 		// Without her, he lets his arms down to his sides.
 		man.HandX, man.HandY = 2, -29
-		art.Ranger(ground.At(left, config.GroundY), man)
+		p.drawRanger(left, false, man, armsDown)
 		woman := stance(c.woman, true, 1)
 		woman.HandX, woman.HandY = 5.5, carryHold
+		arms := armsCarry
 		if cc, ok := carrying(w); ok && cc >= carryDown && cc < carryPick {
 			woman.HandX, woman.HandY = 6, carryLow
+			arms = armsPick
 		}
-		art.Ranger(ground.At(away, config.GroundY).Mirrored(c.woman.left), woman)
+		p.drawRanger(away, c.woman.left, woman, arms)
 		drawCarried(p, w, away, c.woman.left, tick)
 		return
 	}
@@ -591,8 +598,8 @@ func drawRangers(p pen, w *world.World, c *crew, tick int) {
 	}
 	dx, dip := c.dip()
 	art.Sheet(ground.At(0, config.SheetY-sheetSag), x-half, x+half, sheetSag, x+dx, dip, seams)
-	art.Ranger(ground.At(left, config.GroundY), man)
-	art.Ranger(ground.At(right, config.GroundY).Mirrored(true), stance(c.woman, true, 1))
+	p.drawRanger(left, false, man, armsHold)
+	p.drawRanger(right, true, stance(c.woman, true, 1), armsHold)
 }
 
 // drawHUD is the score line across the top.

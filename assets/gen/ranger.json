@@ -1,9 +1,114 @@
 {
-  "ranger_man": {
+  "ranger_man_carry": {
+    "x": 0,
+    "y": 248,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_man_carry_blink": {
+    "x": 0,
+    "y": 310,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_man_down": {
+    "x": 0,
+    "y": 124,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_man_down_blink": {
+    "x": 0,
+    "y": 186,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_man_hold": {
     "x": 0,
     "y": 0,
-    "w": 18,
-    "h": 61,
-    "frames": 1
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_man_hold_blink": {
+    "x": 0,
+    "y": 62,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_man_pick": {
+    "x": 0,
+    "y": 372,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_man_pick_blink": {
+    "x": 0,
+    "y": 434,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_woman_carry": {
+    "x": 0,
+    "y": 744,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_woman_carry_blink": {
+    "x": 0,
+    "y": 806,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_woman_down": {
+    "x": 0,
+    "y": 620,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_woman_down_blink": {
+    "x": 0,
+    "y": 682,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_woman_hold": {
+    "x": 0,
+    "y": 496,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_woman_hold_blink": {
+    "x": 0,
+    "y": 558,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_woman_pick": {
+    "x": 0,
+    "y": 868,
+    "w": 28,
+    "h": 62,
+    "frames": 9
+  },
+  "ranger_woman_pick_blink": {
+    "x": 0,
+    "y": 930,
+    "w": 28,
+    "h": 62,
+    "frames": 9
   }
 }
