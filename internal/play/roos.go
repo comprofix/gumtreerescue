@@ -57,7 +57,7 @@ const (
 	hopLen     = 26              // how far it goes in a hop, about its length
 	hopHigh    = 8               // how high it bounds
 	headEase   = 0.06            // how fast its head goes down or up, a tick
-	paddockLo  = 160             // the stretch of paddock they keep to, clear of the big gum
+	paddockLo  = 24              // the stretch of paddock they keep to, passing behind the big gum
 	paddockHi  = 625
 	paddockTop = 249 // the band behind the fence they stand in, the rails across their legs
 	paddockLow = 256

@@ -32,10 +32,12 @@ func TestMob(t *testing.T) {
 	for i := range seen {
 		seen[i] = map[rooState]bool{}
 	}
+	behindGum := false
 	for range 10 * 60 * config.TPS {
 		m.step()
 		for i, r := range m.roos {
 			seen[i][r.state] = true
+			behindGum = behindGum || r.x < 150
 			if r.x < paddockLo-hopLen || r.x > paddockHi+hopLen || r.y < paddockTop-1 || r.y > paddockLow+3 {
 				t.Fatalf("kangaroo %d at (%.1f, %.1f), out of its paddock", i, r.x, r.y)
 			}
@@ -45,6 +47,9 @@ func TestMob(t *testing.T) {
 				}
 			}
 		}
+	}
+	if !behindGum {
+		t.Error("no kangaroo hopped into the farmland behind the big gum")
 	}
 	for i, r := range m.roos {
 		if r.mum < 0 && (!seen[i][grazing] || !seen[i][sittingUp] || !seen[i][hopping]) {
