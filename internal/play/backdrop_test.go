@@ -6,8 +6,9 @@ import (
 	"github.com/comprofix/gumtreerescue/internal/config"
 )
 
-// The pixel backdrop spans the field: its back from the top, its front
-// down to the bottom, over the fence (DESIGN D30).
+// The pixel backdrop spans the field: its back from below the clear sky
+// down past the ground's top, its front down to the bottom, over the
+// fence (DESIGN D30, D34).
 func TestBackdropSprites(t *testing.T) {
 	index := sheetIndex(t, "backdrop")
 	fw, fh := config.Field()
@@ -19,7 +20,7 @@ func TestBackdropSprites(t *testing.T) {
 	if !ok || front.W != fw || backdropFrontY+front.H != fh {
 		t.Errorf("backdrop_front %+v from %d, want %d wide down to %d", front, backdropFrontY, fw, fh)
 	}
-	if back.H < config.GroundY {
-		t.Errorf("backdrop_back is %d tall, short of the ground at %d", back.H, config.GroundY)
+	if backdropBackY+back.H < config.GroundY {
+		t.Errorf("backdrop_back from %d is %d tall, short of the ground at %d", backdropBackY, back.H, config.GroundY)
 	}
 }

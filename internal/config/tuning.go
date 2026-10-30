@@ -189,6 +189,18 @@ const (
 	GameOverHold = 2 * TPS       // the finished game stays on screen
 )
 
+// A level is a day (DESIGN D34): sunrise at step 0, each rescue a step on,
+// night at DaySteps, the second last rescue, so the last koala comes down
+// in the dark; the sky eases from one step to the next over SkyEaseTicks.
+// WeatherOdds are each weather's chances, in order clear, white clouds,
+// grey-blue cloud and storm.
+const (
+	DaySteps     = KoalaLevel - 1
+	SkyEaseTicks = 3 * TPS / 2
+)
+
+var WeatherOdds = [4]int{3, 4, 2, 1}
+
 // UteDrivePx is how far the ute drives in at a level's start and off at its
 // end, in field pixels: from wholly off the right edge.
 const UteDrivePx = 420

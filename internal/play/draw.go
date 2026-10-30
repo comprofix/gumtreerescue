@@ -52,6 +52,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	}
 	w := p.world
 	p.back.ready(pn)
+	p.drawSky(pn)
 	dst.DrawImage(p.back.back, nil)
 	tick := int(ctx.Tick)
 	// The kangaroos are in the paddock behind the fence (DESIGN D27).
@@ -92,6 +93,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	}
 	// The reptiles wander the track in front of everything (DESIGN D32).
 	p.track.draw(pn)
+	p.drawLight(pn)
 	drawHUD(ctx, dst, w)
 	switch {
 	case w.Starting > 0:
@@ -136,16 +138,20 @@ func tally(w *world.World) []string {
 
 // backdropCache is the country bush behind the play drawn once at the
 // shown screen's scale, as it is slow to draw (DESIGN §3), in two parts:
-// all behind the fence, and the fence and ground in front, with what
-// stands in the paddock behind the fence between them. Draw lays them.
+// all behind the fence, its sky clear for the day's sky behind it (DESIGN
+// D34), and the fence and ground in front, with what stands in the paddock
+// behind the fence between them. Draw lays them.
 type backdropCache struct {
 	back, front *ebiten.Image
 	k           float64
 }
 
-// backdropFrontY is how far down the field the pixel backdrop's front part
-// starts (DESIGN D30).
-const backdropFrontY = 249
+// How far down the field the pixel backdrop's parts start (DESIGN D30):
+// its back below the clear sky, from the escarpments' tops, and its front.
+const (
+	backdropBackY  = 149
+	backdropFrontY = 249
+)
 
 // ready draws the backdrop's two parts for p's image if the scale or the
 // screen has changed: from sprites in the pixel look, in shapes in the
@@ -158,7 +164,7 @@ func (c *backdropCache) ready(p pen) {
 	}
 	c.back, c.front, c.k = ebiten.NewImage(b.Dx(), b.Dy()), ebiten.NewImage(b.Dx(), b.Dy()), k
 	if p.backdrop != nil {
-		p.backdrop.Sprite("backdrop_back").Draw(c.back, 0, 0, 0, false)
+		p.backdrop.Sprite("backdrop_back").Draw(c.back, 0, 0, backdropBackY, false)
 		p.backdrop.Sprite("backdrop_front").Draw(c.front, 0, 0, backdropFrontY, false)
 		return
 	}

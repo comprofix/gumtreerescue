@@ -21,6 +21,8 @@ type Play struct {
 	world *world.World
 	mouse bool          // the mouse is steering, until a key or the pad is used
 	back  backdropCache // the country bush, drawn once
+	day   day           // the time of day and the weather
+	sky   skyCache      // the sky, drawn once a step
 	tree  treeCache     // the gum tree, drawn once a level
 	ute   uteCache      // the ute, drawn once
 	drive driving       // the ute's drive in or off, for its dust and smoke
@@ -65,7 +67,7 @@ func sceneryRNG(ctx *scene.Context) *rand.Rand {
 
 // newPlay is a play scene for w, its scenery placed by scenery.
 func newPlay(scenery *rand.Rand, w *world.World) *Play {
-	p := &Play{world: w, birds: newFlock(scenery), roos: newMob(scenery), track: newReptiles(scenery)}
+	p := &Play{world: w, birds: newFlock(scenery), roos: newMob(scenery), track: newReptiles(scenery), day: newDay(scenery)}
 	p.sound = newSounder(scenery)
 	return p
 }
@@ -113,6 +115,7 @@ func (p *Play) Update(ctx *scene.Context) error {
 		}
 	}
 	p.drive.step(p.world)
+	p.day.step(p.world)
 	p.crew.step(p.world, events)
 	p.birds.step()
 	p.roos.step()
