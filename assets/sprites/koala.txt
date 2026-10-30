@@ -1,0 +1,37 @@
+; The koala in the pixel look (DESIGN §3, D25): the same colours as the
+; smooth art, an Ink outline, Fog fur shaded Lilac and lit Mist, White
+; fluff in the ears, a dark nose and eyes. Facing out; facing left is
+; mirrored when drawn.
+colours k=Ink s=Lilac f=Fog l=Mist w=White d=Dusk
+
+; Sitting, its feet on the bottom row, about the smooth koala's 21 by 27
+; field pixels.
+sprite koala_sit 22 28
+..kkkk..........kkkk..
+.kwwwwk........kwwwwk.
+kwwwwwkkkkkkkkkkwwwwwk
+kwwwwfllllllllllfwwwwk
+kswwfffllllllllfffwwsk
+.kswffffffffffffffwsk.
+..kkffffffffffffffkk..
+.kffffffffffffffffffk.
+.kffffkwffffffkwffffk.
+.kffffkkfkkkkfkkffffk.
+.kllfffffkkkkfffffllk.
+..kllffffkdkkffffllk..
+...kkfffffkkfffffkk...
+.....kkkffffffkkk.....
+....kssfllllllfssk....
+...ksskfllllllfkssk...
+..kfsskfllllllfkssfk..
+..kfsskfllllllfkssfk..
+..kffsskfllllfkssffk..
+..kfffsskfllfkssfffk..
+..kfffkkffllffkkfffk..
+..ksfffffllllfffffsk..
+..kssffffffffffffssk..
+..ksssssffffffsssssk..
+.kkfffkkkkkkkkkkfffkk.
+kfffffffkkkkkkfffffffk
+kssffffsk....ksffffssk
+.kkkkkkk......kkkkkkk.
