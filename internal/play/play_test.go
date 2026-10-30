@@ -90,6 +90,41 @@ func TestGoldenReplay(t *testing.T) {
 	scenetest.Golden(t, "replay", summary(p))
 }
 
+// TestDemo runs the title with the demo behind it for two levels' worth of
+// ticks: the rangers rescue koalas by themselves without a miss, and the
+// demo starts no session and leaves the game's random numbers alone, so
+// the seed plays the same game after it (DESIGN §7).
+func TestDemo(t *testing.T) {
+	h := scenetest.New(t, 42)
+	h.Ctx.NewDemo, h.Ctx.NativePlay = NewDemo, true
+	want := scene.NewRNG(42).Uint64()
+	h.Start(scene.NewTitle())
+	h.Ticks(2 * config.KoalaLevel * config.LevelAt(1).GapTicks)
+	title := scenetest.Current[*scene.Title](h)
+	w := title.Demo().(*Play).World()
+	if w.Level < 2 || w.Misses != 0 || w.Session.Lives != w.Session.Skill.Lives {
+		t.Errorf("the demo played: level %d, misses %d, lives %d", w.Level, w.Misses, w.Session.Lives)
+	}
+	if h.Ctx.Session != nil {
+		t.Error("the demo started a session")
+	}
+	if got := h.Ctx.RNG.Uint64(); got != want {
+		t.Error("the demo used the game's random numbers")
+	}
+}
+
+// TestDemoRestarts starts the demo's game again when it ends.
+func TestDemoRestarts(t *testing.T) {
+	h := scenetest.New(t, 1)
+	p := NewDemo(h.Ctx).(*Play)
+	p.world.Session.Lives, p.world.Level = 0, 3
+	p.world.Over = true
+	p.restart()
+	if w := p.World(); w.Level != 1 || w.Over || w.Session.Lives != w.Session.Skill.Lives {
+		t.Errorf("after a restart: level %d, over %v, lives %d", w.Level, w.Over, w.Session.Lives)
+	}
+}
+
 // TestWalkAwayGameOver plays a game with the rangers walked away to the
 // right: every koala is missed, and the game ends and goes on to the high
 // scores. (Standing still would bounce the first koala straight up for

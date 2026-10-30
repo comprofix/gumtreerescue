@@ -7,6 +7,7 @@ import "github.com/comprofix/gumtreerescue/internal/play"
 func init() {
 	content = Content{
 		NewPlay:    play.New,
+		NewDemo:    play.NewDemo,
 		NativePlay: true,
 		Sounds:     play.Sounds,
 		Sheets:     []string{"backdrop", "fauna", "koala", "ranger", "tree", "ute"},

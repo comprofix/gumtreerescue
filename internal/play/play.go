@@ -5,6 +5,8 @@
 package play
 
 import (
+	"math/rand/v2"
+
 	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/comprofix/gumtreerescue/internal/config"
@@ -27,19 +29,51 @@ type Play struct {
 	roos  mob           // the kangaroos behind the fence
 	dizzy []ring        // the dazed effects showing last tick
 	sound sounder       // picks the sounds
+
+	demo *rand.Rand // the demo's own random numbers, nil in a real game
 }
 
 // New starts a game at a skill, on the level the -level flag asks for.
 func New(ctx *scene.Context, skill config.Skill) scene.Scene {
 	ctx.Session = session.New(skill, skill.Lives)
-	scenery := ctx.Scenery
-	if scenery == nil {
-		scenery = scene.NewSceneryRNG(0)
-	}
-	p := &Play{world: world.New(ctx.Session, ctx.StartLevel, ctx.RNG), birds: newFlock(scenery), roos: newMob(scenery)}
-	p.sound = newSounder(scenery)
+	p := newPlay(sceneryRNG(ctx), world.New(ctx.Session, ctx.StartLevel, ctx.RNG))
 	ctx.Audio.PlayTune(LevelStartTune) // no music in play, so the title tune stops (DESIGN §3)
 	return p
+}
+
+// NewDemo starts the demo behind the title (DESIGN §7): the rangers play
+// by themselves at Normal from the first level, without sound, under the
+// title tune. It has its own session and random numbers, from the
+// scenery's, so the game's seed plays the same game after it.
+func NewDemo(ctx *scene.Context) scene.Scene {
+	scenery := sceneryRNG(ctx)
+	p := newPlay(scenery, nil)
+	p.demo = scene.NewRNG(scenery.Uint64())
+	p.restart()
+	return p
+}
+
+// sceneryRNG is ctx's random numbers for scenery, or with none, a test's
+// own from seed 0.
+func sceneryRNG(ctx *scene.Context) *rand.Rand {
+	if ctx.Scenery == nil {
+		return scene.NewSceneryRNG(0)
+	}
+	return ctx.Scenery
+}
+
+// newPlay is a play scene for w, its scenery placed by scenery.
+func newPlay(scenery *rand.Rand, w *world.World) *Play {
+	p := &Play{world: w, birds: newFlock(scenery), roos: newMob(scenery)}
+	p.sound = newSounder(scenery)
+	return p
+}
+
+// restart starts the demo's game again from the first level.
+func (p *Play) restart() {
+	skill := config.Skills[1] // Normal
+	p.world = world.New(session.New(skill, skill.Lives), 1, p.demo)
+	p.crew = crew{}
 }
 
 // Native implements scene.Native: the scene draws in either look.
@@ -52,6 +86,7 @@ func (p *Play) World() *world.World { return p.world }
 func (p *Play) Update(ctx *scene.Context) error {
 	in := ctx.Input
 	switch {
+	case p.demo != nil: // the title takes the keys
 	case in.JustPressed(input.Pause):
 		ctx.Cut(scene.NewPause(p))
 		return nil
@@ -62,9 +97,17 @@ func (p *Play) Update(ctx *scene.Context) error {
 		ctx.Switch(New(ctx, ctx.Session.Skill))
 		return nil
 	}
-	events := p.world.Update(p.input(ctx))
+	steer := p.world.SafePlay
+	if p.demo == nil {
+		steer = func() world.Input { return p.input(ctx) }
+	}
+	events := p.world.Update(steer())
 	for _, e := range events {
-		if e.Kind == world.GameOver {
+		switch {
+		case e.Kind != world.GameOver:
+		case p.demo != nil:
+			p.restart()
+		default:
 			ctx.Cut(newEnded(p))
 		}
 	}
@@ -74,6 +117,10 @@ func (p *Play) Update(ctx *scene.Context) error {
 	p.roos.step()
 	now := rings(p.world, int(ctx.Tick))
 	p.birds.release(p.dizzy, now)
+	if p.demo != nil {
+		p.dizzy = now
+		return nil
+	}
 	tune, fx := p.sound.step(p.world, events, &p.crew, p.drive, &p.birds, p.dizzy, now)
 	p.dizzy = now
 	if tune != nil {
