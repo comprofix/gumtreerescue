@@ -9,6 +9,7 @@ import (
 
 	"github.com/comprofix/gumtreerescue/internal/art"
 	"github.com/comprofix/gumtreerescue/internal/config"
+	"github.com/comprofix/gumtreerescue/internal/gfx"
 	"github.com/comprofix/gumtreerescue/internal/scene"
 	"github.com/comprofix/gumtreerescue/internal/ui"
 	"github.com/comprofix/gumtreerescue/internal/world"
@@ -17,11 +18,12 @@ import (
 // The play scene's pictures come from package art. Every size here is in
 // field pixels.
 
-// pen is where the play scene draws: the image, and the shown screen's
-// scale from field pixels.
+// pen is where the play scene draws: the image, the shown screen's scale
+// from field pixels, and in the pixel look the sprites (DESIGN §3, D30).
 type pen struct {
-	dst *ebiten.Image
-	k   float64
+	dst    *ebiten.Image
+	k      float64
+	koalas *gfx.Sheet // nil in the smooth look
 }
 
 // px turns a fixed-point position into field pixels.
@@ -32,7 +34,10 @@ func koalaY(k *world.Koala) float64 { return config.SheetY - px(k.H) }
 
 // Draw implements scene.Scene.
 func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
-	pn := pen{dst, scale(ctx)}
+	pn := pen{dst: dst, k: scale(ctx)}
+	if ctx.Preset.Art == config.ArtPixel {
+		pn.koalas = ctx.Sheet("koala")
+	}
 	w := p.world
 	p.back.ready(dst, pn.k)
 	dst.DrawImage(p.back.back, nil)
@@ -226,26 +231,24 @@ func idle(id, tick int) art.Look {
 func drawWaiting(p pen, tree []world.Waiting, tick int) {
 	for _, s := range tree {
 		at := config.Spots[s.Spot]
-		a := art.Pen{Dst: p.dst, K: p.k}.At(float64(at.X), float64(at.Y))
-		l := idle(s.ID, tick)
-		l.Joey = s.Joey
+		k := koalaPose{look: idle(s.ID, tick)}
+		k.look.Joey = s.Joey
 		switch spotPoses[s.Spot] {
 		case onBough:
-			art.OnBough(a, l)
+			k.kind = kOnBough
 		case alongLimb:
-			turn, left := limbSlope(at)
-			art.Gripping(a.Turned(turn, 0).Mirrored(left), l, 0, 0)
+			k.kind = kGrip
+			k.turn, k.flip = limbSlope(at)
 		case inFork:
-			art.Asleep(a, l)
+			k.kind = kAsleep
 		case clingEating:
-			art.ClingChewing(a.Mirrored(!onLeft(at.X, at.Y)), l, float64(tick)/5)
+			k.kind, k.flip, k.phase = kClingChew, !onLeft(at.X, at.Y), float64(tick)/5
 		case eating:
-			art.Chewing(a, l, float64(tick)/5)
+			k.kind, k.phase = kChew, float64(tick)/5
 		case onTrunk:
-			art.Clinging(a.Mirrored(!onLeft(at.X, at.Y)), l, 0, false)
-		default:
-			art.Koala(a, l)
+			k.kind, k.flip = kCling, !onLeft(at.X, at.Y)
 		}
+		p.drawKoalaPose(float64(at.X), float64(at.Y), k)
 	}
 }
 
@@ -254,43 +257,45 @@ func drawWaiting(p pen, tree []world.Waiting, tick int) {
 // at its drop point, falling with its limbs spread, tumbling over in a
 // bounce, dazed, or a joey looking about for its mother (DESIGN §5, §6).
 func drawKoala(p pen, w *world.World, k *world.Koala, tick int) {
-	a := art.Pen{Dst: p.dst, K: p.k}.At(px(k.X), koalaY(k))
-	l := idle(k.ID, tick)
-	l.Joey = k.Joey
+	x, y := px(k.X), koalaY(k)
+	kp := koalaPose{look: idle(k.ID, tick), baby: k.Baby}
+	kp.look.Joey = k.Joey
 	if k.Baby {
-		a = a.Sized(art.JoeySize)
-		l = idle(k.ID+config.KoalaLevel, tick)
+		kp.look = idle(k.ID+config.KoalaLevel, tick)
 	}
 	switch k.State {
 	case world.Crawling:
-		art.Walking(a.Mirrored(true), l, px(k.X)*0.7)
+		kp.kind, kp.flip, kp.phase = kWalk, true, px(k.X)*0.7
 	case world.Walking, world.Climbing, world.Finding:
-		drawMoving(a, k, l)
+		movingPose(k, &kp)
 	case world.Wobbling:
-		art.Walking(a.Turned(0.14*math.Sin(float64(k.Timer)*0.9), 0), l, 0)
+		kp.kind, kp.turn = kWalk, 0.14*math.Sin(float64(k.Timer)*0.9)
 	case world.Falling:
-		art.Falling(a, l, math.Sin(float64(tick)*0.5))
+		kp.kind, kp.flail = kFall, math.Sin(float64(tick)*0.5)
 	case world.Arcing:
 		// One somersault a bounce, the way it is going (DESIGN §5).
-		turn := 0.0
+		kp.kind, kp.tumble = kFall, true
 		if dx, _ := k.Heading(); dx != 0 {
-			turn = 2 * math.Pi * float64(k.Since()) / float64(w.Row.BounceTicks)
+			kp.turn = 2 * math.Pi * float64(k.Since()) / float64(w.Row.BounceTicks)
 			if dx < 0 {
-				turn = -turn
+				kp.turn = -kp.turn
 			}
 		}
-		art.Falling(a.Turned(turn, art.FallingMiddle), l, 0)
 	case world.Thumped:
-		art.Thump(a.Mirrored(true), l, float64(k.Timer)/config.ThumpTicks)
+		kp.kind, kp.flip, kp.squash = kThump, true, float64(k.Timer)/config.ThumpTicks
 	case world.Dazed:
-		l.Lean = 0.08 * math.Sin(float64(tick)*0.15)
-		art.Dazed(a, l)
-		art.Dizzy(a, tick)
+		kp.kind = kDazed
+		kp.look.Lean = 0.08 * math.Sin(float64(tick)*0.15)
 	case world.Searching:
-		l.Lean = 0.2 * math.Sin(float64(tick)*0.06)
-		art.Koala(a, l)
-	default:
-		art.Koala(a, l)
+		kp.look.Lean = 0.2 * math.Sin(float64(tick)*0.06)
+	}
+	p.drawKoalaPose(x, y, kp)
+	if k.State == world.Dazed {
+		a := art.Pen{Dst: p.dst, K: p.k}.At(x, y)
+		if k.Baby {
+			a = a.Sized(art.JoeySize)
+		}
+		art.Dizzy(a, tick)
 	}
 }
 
@@ -298,14 +303,14 @@ func drawKoala(p pen, w *world.World, k *world.Koala, tick int) {
 // branch goes for each reach of its paws, in field pixels.
 const gripStride = 8
 
-// drawMoving draws a koala going about the tree along its path (DESIGN
+// movingPose poses a koala going about the tree along its path (DESIGN
 // §5): up or down the trunk or a steep limb it clings to its side and
 // bounds, arms then legs, backing down bottom first; round the back of the
 // trunk it shimmies, still clinging and facing the wood; along a sloping limb
 // or branch it grips the wood facing up it, reaching ahead then bringing
 // its back feet up, or backing down feet first; along a near-level branch
 // it walks on top.
-func drawMoving(a art.Pen, k *world.Koala, l art.Look) {
+func movingPose(k *world.Koala, kp *koalaPose) {
 	dx, dh := k.Heading()
 	f := 0.0 // how far through the moving half of its bound, 0 when still
 	if h := k.Hop(); 2*h < config.HopTicks {
@@ -315,10 +320,10 @@ func drawMoving(a art.Pen, k *world.Koala, l art.Look) {
 	switch {
 	case k.Behind():
 		left := onLeft(k.X/config.SubPx, int(koalaY(k)))
-		art.Clinging(a.Mirrored(!left), l, math.Sin(math.Pi*f), false)
+		kp.kind, kp.flip, kp.reach = kCling, !left, math.Sin(math.Pi*f)
 	case abs(dh) > 2*abs(dx) || dx == 0:
 		left := onLeft(k.X/config.SubPx, int(koalaY(k)))
-		art.Clinging(a.Mirrored(!left), l, math.Sin(math.Pi*f), dh < 0)
+		kp.kind, kp.flip, kp.reach, kp.down = kCling, !left, math.Sin(math.Pi*f), dh < 0
 	case 3*abs(dh) > abs(dx):
 		// A steady grip, paws then feet, one every gripStride across.
 		g := px(k.X) / gripStride
@@ -331,9 +336,10 @@ func drawMoving(a art.Pen, k *world.Koala, l art.Look) {
 		if dh < 0 {
 			up, reach, follow = dx < 0, then, first
 		}
-		art.Gripping(a.Turned(-math.Atan2(float64(abs(dh)), float64(abs(dx))), 0).Mirrored(!up), l, reach, follow)
+		kp.kind, kp.turn, kp.flip = kGrip, -math.Atan2(float64(abs(dh)), float64(abs(dx))), !up
+		kp.reach, kp.follow = reach, follow
 	default:
-		art.Walking(a.Turned(slope, 0).Mirrored(dx < 0), l, px(k.X)*0.7)
+		kp.kind, kp.turn, kp.flip, kp.phase = kWalk, slope, dx < 0, px(k.X)*0.7
 	}
 }
 
@@ -411,23 +417,22 @@ func drawCarried(p pen, w *world.World, x float64, left bool, tick int) {
 		if !k.Baby {
 			continue
 		}
-		l := idle(k.ID+config.KoalaLevel, tick)
-		at := art.Pen{Dst: p.dst, K: p.k}
+		kp := koalaPose{look: idle(k.ID+config.KoalaLevel, tick), baby: true}
 		switch {
 		case c < carryDown:
 			f := c / carryDown
 			y := lerp(koalaY(k), config.GroundY, f)
-			reach := math.Abs(math.Sin(y * 0.3))
-			art.Clinging(at.At(lerp(px(k.X), foot+float64(n)*7, f), y).Sized(art.JoeySize).Mirrored(true), l, reach, true)
+			kp.kind, kp.flip, kp.reach, kp.down = kCling, true, math.Abs(math.Sin(y*0.3)), true
+			p.drawKoalaPose(lerp(px(k.X), foot+float64(n)*7, f), y, kp)
 		case c < carryPick:
-			art.Koala(at.At(foot+float64(n)*7, config.GroundY).Sized(art.JoeySize), l)
+			p.drawKoalaPose(foot+float64(n)*7, config.GroundY, kp)
 		default:
 			// Sitting on her forearms, in front of her.
 			f := 1.0
 			if left {
 				f = -1
 			}
-			art.Koala(at.At(x+f*(4+float64(n)*4), config.GroundY+carryHold).Sized(art.JoeySize), l)
+			p.drawKoalaPose(x+f*(4+float64(n)*4), config.GroundY+carryHold, kp)
 		}
 		n++
 	}
@@ -479,13 +484,14 @@ func drawTray(p pen, w *world.World, x float64) {
 	n := 0
 	for i := range w.Koalas {
 		if k := &w.Koalas[i]; k.State == world.InTray {
-			a := art.Pen{Dst: p.dst, K: p.k}.At(traySeat(x, n))
-			l := art.Look{Joey: k.Joey}
+			sx, sy := traySeat(x, n)
+			kp := koalaPose{look: art.Look{Joey: k.Joey}}
 			if k.Bonked && k.Timer > 0 {
-				art.Dazed(a, l)
-				art.Dizzy(a, k.Timer)
-			} else {
-				art.Koala(a, l)
+				kp.kind = kDazed
+			}
+			p.drawKoalaPose(sx, sy, kp)
+			if kp.kind == kDazed {
+				art.Dizzy(art.Pen{Dst: p.dst, K: p.k}.At(sx, sy), k.Timer)
 			}
 			n++
 		}
@@ -493,7 +499,7 @@ func drawTray(p pen, w *world.World, x float64) {
 	// Lost joeys a ranger has carried to the back of the ute (DESIGN §6).
 	if joeysInTray(w) {
 		for j := range w.LostJoeys() {
-			art.Koala(art.Pen{Dst: p.dst, K: p.k}.At(left+6+float64(j)*8, deck-4).Sized(art.JoeySize), art.Look{})
+			p.drawKoalaPose(left+6+float64(j)*8, deck-4, koalaPose{baby: true})
 		}
 	}
 	art.TraySide(art.Pen{Dst: p.dst, K: p.k}.At(x, deck), config.TrayBack, config.Headboard)

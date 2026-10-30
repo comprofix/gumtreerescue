@@ -1,9 +1,429 @@
 {
+  "joey_cling": {
+    "x": 0,
+    "y": 1680,
+    "w": 10,
+    "h": 20,
+    "frames": 4
+  },
+  "joey_cling_blink": {
+    "x": 0,
+    "y": 1700,
+    "w": 10,
+    "h": 20,
+    "frames": 4
+  },
+  "joey_cling_flick": {
+    "x": 0,
+    "y": 1720,
+    "w": 10,
+    "h": 20,
+    "frames": 4
+  },
+  "joey_clingdown": {
+    "x": 0,
+    "y": 1740,
+    "w": 10,
+    "h": 18,
+    "frames": 4
+  },
+  "joey_grip": {
+    "x": 0,
+    "y": 1758,
+    "w": 20,
+    "h": 19,
+    "frames": 24
+  },
+  "joey_grip_blink": {
+    "x": 0,
+    "y": 1777,
+    "w": 20,
+    "h": 19,
+    "frames": 24
+  },
+  "joey_grip_flick": {
+    "x": 0,
+    "y": 1796,
+    "w": 20,
+    "h": 19,
+    "frames": 24
+  },
+  "joey_sit": {
+    "x": 0,
+    "y": 1629,
+    "w": 12,
+    "h": 17,
+    "frames": 1
+  },
+  "joey_sit_blink": {
+    "x": 0,
+    "y": 1646,
+    "w": 12,
+    "h": 17,
+    "frames": 1
+  },
+  "joey_sit_flick": {
+    "x": 0,
+    "y": 1663,
+    "w": 12,
+    "h": 17,
+    "frames": 1
+  },
+  "joey_walk": {
+    "x": 0,
+    "y": 1815,
+    "w": 22,
+    "h": 14,
+    "frames": 30
+  },
+  "koala_asleep": {
+    "x": 0,
+    "y": 349,
+    "w": 22,
+    "h": 26,
+    "frames": 1
+  },
+  "koala_asleep_joey": {
+    "x": 0,
+    "y": 1165,
+    "w": 28,
+    "h": 26,
+    "frames": 1
+  },
+  "koala_chew": {
+    "x": 0,
+    "y": 515,
+    "w": 24,
+    "h": 30,
+    "frames": 4
+  },
+  "koala_chew_blink": {
+    "x": 0,
+    "y": 545,
+    "w": 24,
+    "h": 30,
+    "frames": 4
+  },
+  "koala_chew_flick": {
+    "x": 0,
+    "y": 575,
+    "w": 24,
+    "h": 30,
+    "frames": 4
+  },
+  "koala_chew_joey": {
+    "x": 0,
+    "y": 1331,
+    "w": 28,
+    "h": 30,
+    "frames": 4
+  },
+  "koala_chew_joey_blink": {
+    "x": 0,
+    "y": 1361,
+    "w": 28,
+    "h": 30,
+    "frames": 4
+  },
+  "koala_chew_joey_flick": {
+    "x": 0,
+    "y": 1391,
+    "w": 28,
+    "h": 30,
+    "frames": 4
+  },
+  "koala_cling": {
+    "x": 0,
+    "y": 87,
+    "w": 18,
+    "h": 35,
+    "frames": 4
+  },
+  "koala_cling_blink": {
+    "x": 0,
+    "y": 122,
+    "w": 18,
+    "h": 35,
+    "frames": 4
+  },
+  "koala_cling_flick": {
+    "x": 0,
+    "y": 157,
+    "w": 18,
+    "h": 35,
+    "frames": 4
+  },
+  "koala_cling_joey": {
+    "x": 0,
+    "y": 903,
+    "w": 26,
+    "h": 35,
+    "frames": 4
+  },
+  "koala_cling_joey_blink": {
+    "x": 0,
+    "y": 938,
+    "w": 26,
+    "h": 35,
+    "frames": 4
+  },
+  "koala_cling_joey_flick": {
+    "x": 0,
+    "y": 973,
+    "w": 26,
+    "h": 35,
+    "frames": 4
+  },
+  "koala_clingchew": {
+    "x": 0,
+    "y": 605,
+    "w": 20,
+    "h": 33,
+    "frames": 4
+  },
+  "koala_clingchew_blink": {
+    "x": 0,
+    "y": 638,
+    "w": 20,
+    "h": 33,
+    "frames": 4
+  },
+  "koala_clingchew_flick": {
+    "x": 0,
+    "y": 671,
+    "w": 20,
+    "h": 33,
+    "frames": 4
+  },
+  "koala_clingchew_joey": {
+    "x": 0,
+    "y": 1421,
+    "w": 26,
+    "h": 33,
+    "frames": 4
+  },
+  "koala_clingchew_joey_blink": {
+    "x": 0,
+    "y": 1454,
+    "w": 26,
+    "h": 33,
+    "frames": 4
+  },
+  "koala_clingchew_joey_flick": {
+    "x": 0,
+    "y": 1487,
+    "w": 26,
+    "h": 33,
+    "frames": 4
+  },
+  "koala_clingdown": {
+    "x": 0,
+    "y": 192,
+    "w": 18,
+    "h": 32,
+    "frames": 4
+  },
+  "koala_clingdown_joey": {
+    "x": 0,
+    "y": 1008,
+    "w": 26,
+    "h": 32,
+    "frames": 4
+  },
+  "koala_dazed": {
+    "x": 0,
+    "y": 375,
+    "w": 22,
+    "h": 29,
+    "frames": 1
+  },
+  "koala_dazed_joey": {
+    "x": 0,
+    "y": 1191,
+    "w": 28,
+    "h": 29,
+    "frames": 1
+  },
+  "koala_fall": {
+    "x": 0,
+    "y": 738,
+    "w": 26,
+    "h": 33,
+    "frames": 3
+  },
+  "koala_fall_joey": {
+    "x": 0,
+    "y": 1554,
+    "w": 26,
+    "h": 33,
+    "frames": 3
+  },
+  "koala_grip": {
+    "x": 0,
+    "y": 224,
+    "w": 36,
+    "h": 33,
+    "frames": 24
+  },
+  "koala_grip_blink": {
+    "x": 0,
+    "y": 257,
+    "w": 36,
+    "h": 33,
+    "frames": 24
+  },
+  "koala_grip_flick": {
+    "x": 0,
+    "y": 290,
+    "w": 36,
+    "h": 33,
+    "frames": 24
+  },
+  "koala_grip_joey": {
+    "x": 0,
+    "y": 1040,
+    "w": 38,
+    "h": 33,
+    "frames": 24
+  },
+  "koala_grip_joey_blink": {
+    "x": 0,
+    "y": 1073,
+    "w": 38,
+    "h": 33,
+    "frames": 24
+  },
+  "koala_grip_joey_flick": {
+    "x": 0,
+    "y": 1106,
+    "w": 38,
+    "h": 33,
+    "frames": 24
+  },
+  "koala_onbough": {
+    "x": 0,
+    "y": 404,
+    "w": 18,
+    "h": 37,
+    "frames": 1
+  },
+  "koala_onbough_blink": {
+    "x": 0,
+    "y": 441,
+    "w": 18,
+    "h": 37,
+    "frames": 1
+  },
+  "koala_onbough_flick": {
+    "x": 0,
+    "y": 478,
+    "w": 18,
+    "h": 37,
+    "frames": 1
+  },
+  "koala_onbough_joey": {
+    "x": 0,
+    "y": 1220,
+    "w": 24,
+    "h": 37,
+    "frames": 1
+  },
+  "koala_onbough_joey_blink": {
+    "x": 0,
+    "y": 1257,
+    "w": 24,
+    "h": 37,
+    "frames": 1
+  },
+  "koala_onbough_joey_flick": {
+    "x": 0,
+    "y": 1294,
+    "w": 24,
+    "h": 37,
+    "frames": 1
+  },
   "koala_sit": {
     "x": 0,
     "y": 0,
     "w": 22,
-    "h": 28,
+    "h": 29,
     "frames": 1
+  },
+  "koala_sit_blink": {
+    "x": 0,
+    "y": 29,
+    "w": 22,
+    "h": 29,
+    "frames": 1
+  },
+  "koala_sit_flick": {
+    "x": 0,
+    "y": 58,
+    "w": 22,
+    "h": 29,
+    "frames": 1
+  },
+  "koala_sit_joey": {
+    "x": 0,
+    "y": 813,
+    "w": 28,
+    "h": 30,
+    "frames": 1
+  },
+  "koala_sit_joey_blink": {
+    "x": 0,
+    "y": 843,
+    "w": 28,
+    "h": 30,
+    "frames": 1
+  },
+  "koala_sit_joey_flick": {
+    "x": 0,
+    "y": 873,
+    "w": 28,
+    "h": 30,
+    "frames": 1
+  },
+  "koala_thump": {
+    "x": 0,
+    "y": 704,
+    "w": 18,
+    "h": 34,
+    "frames": 3
+  },
+  "koala_thump_joey": {
+    "x": 0,
+    "y": 1520,
+    "w": 26,
+    "h": 34,
+    "frames": 3
+  },
+  "koala_tumble": {
+    "x": 0,
+    "y": 771,
+    "w": 42,
+    "h": 42,
+    "frames": 16
+  },
+  "koala_tumble_joey": {
+    "x": 0,
+    "y": 1587,
+    "w": 42,
+    "h": 42,
+    "frames": 16
+  },
+  "koala_walk": {
+    "x": 0,
+    "y": 323,
+    "w": 40,
+    "h": 26,
+    "frames": 30
+  },
+  "koala_walk_joey": {
+    "x": 0,
+    "y": 1139,
+    "w": 40,
+    "h": 26,
+    "frames": 30
   }
 }
