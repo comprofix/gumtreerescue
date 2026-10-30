@@ -19,12 +19,14 @@ const Line = 0.8
 // Pen draws shapes given in field pixels, about an origin at (OX, OY), at
 // K screen pixels to a field pixel. With Flip set it mirrors about the
 // origin, so a figure drawn facing right faces left. Sized and Turned
-// draw a figure smaller or turned.
+// draw a figure smaller or turned. With Hard set it draws hard pixels, with
+// no anti-aliasing, as the pixel look does.
 type Pen struct {
 	Dst    *ebiten.Image
 	K      float64
 	OX, OY float64
 	Flip   bool
+	Hard   bool
 
 	s      float64 // the figure's size, 0 for full size
 	sx, sy float64 // how much wider and taller it is drawn, 0 for as it is
@@ -49,7 +51,7 @@ func (p Pen) opacity() float64 {
 
 // colour is the colour scale for palette colour c at the pen's opacity.
 func (p Pen) colour(c int) *vector.DrawPathOptions {
-	op := &vector.DrawPathOptions{AntiAlias: true}
+	op := &vector.DrawPathOptions{AntiAlias: !p.Hard}
 	op.ColorScale.ScaleWithColor(gfx.RGBA(c))
 	if p.solid != 0 {
 		op.ColorScale.ScaleAlpha(float32(p.solid))
