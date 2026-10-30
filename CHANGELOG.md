@@ -5,6 +5,22 @@ All notable changes to this game are listed here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/comprofix/gumtreerescue/compare/v1.1.0...v1.2.0) - 2026-10-30
+
+### Added
+
+- Sandstone escarpments now stand behind the paddocks in place of the
+  blue ranges: flat tops capped with bush, pale orange-pink cliffs and
+  forested slopes, with a far one hazed blue by distance.
+- Each level is a day. It starts at sunrise, the sun crosses the sky from
+  right to left with each koala rescued, sets after the eighth, and the
+  last koala comes down by moonlight under the stars. Misses don't move
+  the clock, and the next level starts at sunrise again.
+- The weather changes from level to level: clear, light white clouds,
+  grey-blue cloud or dark storm cloud. Dawn, dusk, night and cloud light
+  the whole scene to match.
+- The title demo runs through the day too. Both looks.
+
 ## [1.1.0](https://github.com/comprofix/gumtreerescue/compare/v1.0.0...v1.1.0) - 2026-10-30
 
 ### Added
