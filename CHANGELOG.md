@@ -5,6 +5,18 @@ All notable changes to this game are listed here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0](https://github.com/comprofix/gumtreerescue/compare/v1.2.0...v1.3.0) - 2026-10-30
+
+### Added
+
+- Kangaroos now hop across the farmland behind the big gum, passing behind
+  its trunk.
+- A small gum stands in that farmland, with new perches for the birds.
+- Holstein and Jersey cows are scattered about the paddocks.
+- The farm has depth and detail: a shed seen from its corner, with hay in
+  its open door, windows and a rusting iron roof; a rounded water tank; and
+  a braced windmill with a ladder, platform and stock trough.
+
 ## [1.2.0](https://github.com/comprofix/gumtreerescue/compare/v1.1.0...v1.2.0) - 2026-10-30
 
 ### Added
