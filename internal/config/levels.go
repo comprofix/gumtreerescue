@@ -21,22 +21,22 @@ type Level struct {
 // that join it from levels 3 and 6. All are above the first station, so
 // the ute is always far enough away (MinUteSteps).
 var (
-	hanging = Drop{Station: 0, Height: 200}
-	higher  = Drop{Station: 0, Height: 250}
-	lower   = Drop{Station: 0, Height: 160}
+	Hanging = Drop{Station: 0, Height: 200}
+	Higher  = Drop{Station: 0, Height: 250}
+	Lower   = Drop{Station: 0, Height: 160}
 )
 
 // Levels is the level table, from level 1. Each level adds one new thing
 // (DESIGN §5). Past its end, the last row repeats ever faster (LevelAt).
 var Levels = []Level{
 	// Level 1 teaches: one koala in the air at a time.
-	{BounceTicks: 96, GapTicks: 6 * TPS, UteStation: 3, Drops: []Drop{hanging}, Intro: "CATCH THE KOALAS!"},
-	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 3, Drops: []Drop{hanging}, Intro: "A LITTLE FASTER"},
-	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 3, Drops: []Drop{hanging, higher}, Intro: "A HIGHER BRANCH!"},
-	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 4, Drops: []Drop{hanging, higher}, Intro: "THE UTE MOVES BACK"},
-	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{hanging, higher}, Joeys: 1, Intro: "A JOEY! WORTH DOUBLE"},
-	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{hanging, higher, lower}, Joeys: 1, Intro: "A LOWER BRANCH!"},
-	{BounceTicks: 84, GapTicks: 5 * TPS, UteStation: 5, Drops: []Drop{hanging, higher, lower}, Joeys: 2, Intro: "THE UTE MOVES BACK AGAIN"},
+	{BounceTicks: 96, GapTicks: 6 * TPS, UteStation: 3, Drops: []Drop{Hanging}, Intro: "CATCH THE KOALAS!"},
+	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 3, Drops: []Drop{Hanging}, Intro: "A LITTLE FASTER"},
+	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 3, Drops: []Drop{Hanging, Higher}, Intro: "A HIGHER BRANCH!"},
+	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 4, Drops: []Drop{Hanging, Higher}, Intro: "THE UTE MOVES BACK"},
+	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{Hanging, Higher}, Joeys: 1, Intro: "A JOEY! WORTH DOUBLE"},
+	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{Hanging, Higher, Lower}, Joeys: 1, Intro: "A LOWER BRANCH!"},
+	{BounceTicks: 84, GapTicks: 5 * TPS, UteStation: 5, Drops: []Drop{Hanging, Higher, Lower}, Joeys: 2, Intro: "THE UTE MOVES BACK AGAIN"},
 }
 
 // The endless levels past the table (DESIGN §5): each is SpeedNudge ticks
