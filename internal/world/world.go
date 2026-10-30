@@ -111,8 +111,9 @@ const (
 
 // Event is something that happened, for sounds and effects.
 type Event struct {
-	Kind EventKind
-	Zone int // for Bounced: the sheet's zone, 1 to 5
+	Kind  EventKind
+	Zone  int // for Bounced: the sheet's zone, 1 to 5
+	Ticks int // for Dropped: how long the fall to the sheet takes
 }
 
 // Input is what the player is doing this tick: pushing left (-1) or right
@@ -282,7 +283,7 @@ func (w *World) Update(in Input) []Event {
 	return w.events
 }
 
-func (w *World) emit(k EventKind, zone int) { w.events = append(w.events, Event{k, zone}) }
+func (w *World) emit(k EventKind, zone int) { w.events = append(w.events, Event{Kind: k, Zone: zone}) }
 
 // score adds points, and an extra life at every config.ExtraLife points
 // up to config.MaxLives (DESIGN §5). Past the cap the threshold still
@@ -615,7 +616,7 @@ func (w *World) step(k *Koala) {
 	case Wobbling:
 		if k.Timer--; k.Timer <= 0 {
 			k.State, k.t = Falling, 0
-			w.emit(Dropped, 0)
+			w.events = append(w.events, Event{Kind: Dropped, Ticks: w.fallTicks(k.h0)})
 		}
 	case Falling:
 		k.t++

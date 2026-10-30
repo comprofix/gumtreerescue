@@ -427,6 +427,36 @@ func TestWobble(t *testing.T) {
 	}
 }
 
+// TestDropTicks checks a drop says how long its fall to the sheet takes,
+// for the slide whistle (DESIGN §3): the catch comes exactly then, from
+// every branch.
+func TestDropTicks(t *testing.T) {
+	w := newWorld(t)
+	w.Row = config.LevelAt(6) // three branches
+	for range 3 {
+		var fall int
+		run(t, w, func() Input { return Input{} }, 2000, func(es []Event) bool {
+			for _, e := range es {
+				if e.Kind == Dropped {
+					fall = e.Ticks
+				}
+			}
+			return fall > 0
+		})
+		k := &w.Koalas[len(w.Koalas)-1]
+		in := func() Input { return holdFor(k.X, 3) }
+		for range fall - 1 {
+			if has(w.Update(in()), Bounced) {
+				t.Fatalf("caught before the %d ticks the drop said", fall)
+			}
+		}
+		if !has(w.Update(in()), Bounced) {
+			t.Fatalf("not caught after the %d ticks the drop said", fall)
+		}
+		w.Koalas, w.nextDrop = w.Koalas[:0], 1
+	}
+}
+
 // TestBranches checks drop points join the level table as DESIGN §5 says:
 // one branch on levels 1 and 2, a higher one from 3, a lower one from 6,
 // and the drops come from all of them.
