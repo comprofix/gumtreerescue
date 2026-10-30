@@ -869,20 +869,6 @@ func TestFairHoldsDrops(t *testing.T) {
 	run(t, w, func() Input { return Input{} }, 2*config.DropRetry, func(es []Event) bool { return has(es, Leaving) })
 }
 
-// perfectBot heads the sheet to the next catch safe play makes, or with
-// none, to the first drop point.
-func perfectBot(w *World) Input {
-	best := catchAt{tick: -1, x: SafeSheetX(w.Row.Drops[0].Station)}
-	for i := range w.Koalas {
-		for _, c := range w.safeCatches(&w.Koalas[i], nil) {
-			if best.tick < 0 || c.tick < best.tick {
-				best = c
-			}
-		}
-	}
-	return Input{Aim: true, Target: best.x}
-}
-
 // TestSchedulerIsFair plays many seeds through the table and into the
 // endless levels with a perfect safe player at Normal: the scheduler must
 // never drop a koala it can't catch (DESIGN §5, PLAN §4).
@@ -894,7 +880,7 @@ func TestSchedulerIsFair(t *testing.T) {
 			if tick > 10000*levels {
 				t.Fatalf("seed %d: stuck on level %d", seed, w.Level)
 			}
-			if es := w.Update(perfectBot(w)); has(es, Missed) {
+			if es := w.Update(w.SafePlay()); has(es, Missed) {
 				t.Fatalf("seed %d: the perfect player missed on level %d at tick %d: sheet %d, koalas %+v", seed, w.Level, tick, w.Sheet, w.Koalas)
 			}
 		}

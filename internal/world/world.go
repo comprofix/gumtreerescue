@@ -603,6 +603,21 @@ func (w *World) fair(k *Koala) (koalas, rangers bool) {
 	return true, len(mine) == 0 || reach(catchAt{0, w.Sheet}, mine[0])
 }
 
+// SafePlay is the input of a perfect safe player: the sheet heads to the
+// next catch safe play makes, or with none, to the first drop point. It
+// plays the title's demo (DESIGN §7).
+func (w *World) SafePlay() Input {
+	best := catchAt{tick: -1, x: SafeSheetX(w.Row.Drops[0].Station)}
+	for i := range w.Koalas {
+		for _, c := range w.safeCatches(&w.Koalas[i], nil) {
+			if best.tick < 0 || c.tick < best.tick {
+				best = c
+			}
+		}
+	}
+	return Input{Aim: true, Target: best.x}
+}
+
 func abs(n int) int { return max(n, -n) }
 
 // step moves one koala on a tick.
