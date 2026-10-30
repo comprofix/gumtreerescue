@@ -29,6 +29,7 @@ type pen struct {
 	backdrop *gfx.Sheet // nil in the smooth look
 	fauna    *gfx.Sheet // nil in the smooth look
 	ute      *gfx.Sheet // nil in the smooth look
+	reptiles *gfx.Sheet // nil in the smooth look
 }
 
 // art is an art pen drawing on p's image, with hard pixels in the pixel
@@ -47,6 +48,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	if ctx.Preset.Art == config.ArtPixel {
 		pn.koalas, pn.rangers, pn.tree = ctx.Sheet("koala"), ctx.Sheet("ranger"), ctx.Sheet("tree")
 		pn.backdrop, pn.fauna, pn.ute = ctx.Sheet("backdrop"), ctx.Sheet("fauna"), ctx.Sheet("ute")
+		pn.reptiles = ctx.Sheet("reptiles")
 	}
 	w := p.world
 	p.back.ready(pn)

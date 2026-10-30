@@ -54,3 +54,36 @@ func TestReptiles(t *testing.T) {
 		t.Errorf("the monitor came along %d times and the python %d, want 3 or more each", visits[0], visits[1])
 	}
 }
+
+// Every pose of the monitor and the python finds its sprite and frame in
+// the sheet, centred on its origin (DESIGN D30).
+func TestReptileSprites(t *testing.T) {
+	index := sheetIndex(t, "reptiles")
+	check := func(name string, frame int) {
+		t.Helper()
+		sp, ok := index[name]
+		switch {
+		case !ok:
+			t.Errorf("no sprite %s", name)
+		case frame < 0 || frame >= sp.Frames:
+			t.Errorf("%s: frame %d of %d", name, frame, sp.Frames)
+		case sp.W%2 != 0 || sp.H%2 != 0:
+			t.Errorf("%s: %d×%d, not centred", name, sp.W, sp.H)
+		}
+	}
+	for _, step := range []float64{-0.1, 0, 3, 6.2, 40} {
+		check(monitorSprite(art.Goanna{Step: step, Walk: 1}))
+	}
+	for _, tongue := range []float64{0, 0.4, 1} {
+		check(monitorSprite(art.Goanna{Tongue: tongue}))
+		check(pythonSprite(art.Snake{Coil: 1, Tongue: tongue}))
+	}
+	for _, coil := range []float64{0, 0.3, 0.9, 0.999} {
+		for _, wave := range []float64{-1, 0, 3.1, 6.28, 50} {
+			check(pythonSprite(art.Snake{Wave: wave, Coil: coil}))
+		}
+	}
+	if name, _ := monitorSprite(art.Goanna{Walk: 0.4}); name != "monitor_rest" {
+		t.Errorf("a monitor slowing to a stop is %s", name)
+	}
+}

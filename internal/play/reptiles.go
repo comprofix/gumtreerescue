@@ -230,6 +230,36 @@ func flick(t, every int) float64 {
 	return 0
 }
 
+// The reptiles' frames in the pixel look (DESIGN D30): the monitor's
+// through its walk and its tongue's from in to out; the python's through a
+// curve of its slither, for each step from stretched out to nearly curled
+// up, and its tongue's while coiled.
+const (
+	monitorSteps  = 8
+	reptileFlicks = 3
+	pythonWaves   = 8
+	pythonCoils   = 4
+)
+
+// monitorSprite is the lace monitor's sprite and frame for g: walking once
+// its legs swing half way, else resting.
+func monitorSprite(g art.Goanna) (string, int) {
+	if g.Walk >= 0.5 {
+		return "monitor_walk", wrap(int(math.Round(g.Step/(2*math.Pi)*monitorSteps)), monitorSteps)
+	}
+	return "monitor_rest", int(math.Round(g.Tongue * (reptileFlicks - 1)))
+}
+
+// pythonSprite is the carpet python's sprite and frame for s: coiled once
+// wholly curled up, else slithering at the nearest step of curling up.
+func pythonSprite(s art.Snake) (string, int) {
+	if s.Coil >= 1 {
+		return "python_coiled", int(math.Round(s.Tongue * (reptileFlicks - 1)))
+	}
+	c := min(int(math.Round(s.Coil*pythonCoils)), pythonCoils-1)
+	return "python", c*pythonWaves + wrap(int(math.Round(s.Wave/(2*math.Pi)*pythonWaves)), pythonWaves)
+}
+
 // draw draws the reptiles on the track, the farther first.
 func (r *reptiles) draw(p pen) {
 	m, s := &r.monitor, &r.python
@@ -241,6 +271,11 @@ func (r *reptiles) draw(p pen) {
 		if m.state == resting {
 			g.Tongue = flick(m.t, monitorFlick)
 		}
+		if p.reptiles != nil {
+			name, i := monitorSprite(g)
+			drawCentred(p.dst, p.reptiles, name, i, m.x, m.y, m.left)
+			return
+		}
 		art.LaceMonitor(p.art().At(m.x, m.y).Mirrored(m.left), g)
 	}
 	snake := func() {
@@ -250,6 +285,11 @@ func (r *reptiles) draw(p pen) {
 		look := art.Snake{Wave: art.PythonWave(s.along), Coil: s.coil}
 		if s.state == resting && s.coil == 1 {
 			look.Tongue = flick(s.t, pythonFlick)
+		}
+		if p.reptiles != nil {
+			name, i := pythonSprite(look)
+			drawCentred(p.dst, p.reptiles, name, i, s.x, s.y, s.left)
+			return
 		}
 		art.CarpetPython(p.art().At(s.x, s.y).Mirrored(s.left), look)
 	}

@@ -1,0 +1,30 @@
+{
+  "monitor_rest": {
+    "x": 0,
+    "y": 16,
+    "w": 102,
+    "h": 16,
+    "frames": 3
+  },
+  "monitor_walk": {
+    "x": 0,
+    "y": 0,
+    "w": 102,
+    "h": 16,
+    "frames": 8
+  },
+  "python": {
+    "x": 0,
+    "y": 32,
+    "w": 86,
+    "h": 16,
+    "frames": 32
+  },
+  "python_coiled": {
+    "x": 0,
+    "y": 48,
+    "w": 28,
+    "h": 16,
+    "frames": 3
+  }
+}

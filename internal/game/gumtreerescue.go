@@ -10,7 +10,7 @@ func init() {
 		NewDemo:    play.NewDemo,
 		NativePlay: true,
 		Sounds:     play.Sounds,
-		Sheets:     []string{"backdrop", "fauna", "koala", "ranger", "tree", "ute"},
+		Sheets:     []string{"backdrop", "fauna", "koala", "ranger", "reptiles", "tree", "ute"},
 		TitleTune:  play.TitleTune,
 		ScoresTune: play.ScoresTune,
 	}
