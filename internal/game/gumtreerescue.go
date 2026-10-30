@@ -9,7 +9,7 @@ func init() {
 		NewPlay:    play.New,
 		NativePlay: true,
 		Sounds:     play.Sounds,
-		Sheets:     []string{"backdrop", "fauna", "koala", "ranger", "tree"},
+		Sheets:     []string{"backdrop", "fauna", "koala", "ranger", "tree", "ute"},
 		TitleTune:  play.TitleTune,
 		ScoresTune: play.ScoresTune,
 	}

@@ -28,6 +28,7 @@ type pen struct {
 	tree     *gfx.Sheet // nil in the smooth look
 	backdrop *gfx.Sheet // nil in the smooth look
 	fauna    *gfx.Sheet // nil in the smooth look
+	ute      *gfx.Sheet // nil in the smooth look
 }
 
 // art is an art pen drawing on p's image, with hard pixels in the pixel
@@ -45,7 +46,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	pn := pen{dst: dst, k: scale(ctx)}
 	if ctx.Preset.Art == config.ArtPixel {
 		pn.koalas, pn.rangers, pn.tree = ctx.Sheet("koala"), ctx.Sheet("ranger"), ctx.Sheet("tree")
-		pn.backdrop, pn.fauna = ctx.Sheet("backdrop"), ctx.Sheet("fauna")
+		pn.backdrop, pn.fauna, pn.ute = ctx.Sheet("backdrop"), ctx.Sheet("fauna"), ctx.Sheet("ute")
 	}
 	w := p.world
 	p.back.ready(pn)
@@ -69,7 +70,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	// it, behind its wheels (DESIGN D28).
 	drawMarkers(pn, w, true, ute)
 	drawSmoke(pn, w, p.drive)
-	p.ute.draw(dst, pn.k, ute, p.drive.speed())
+	p.ute.draw(pn, ute, p.drive.speed())
 	drawTray(pn, w, ute)
 	drawDust(pn, w, p.drive)
 	drawMarkers(pn, w, false, ute)
@@ -499,9 +500,41 @@ const (
 	uteTall   = uteAbove + art.UteWheel + 6
 )
 
-// draw lays the ute on dst with its tray's station at x, going speed field
-// pixels a tick, drawing it first if the scale has changed.
-func (c *uteCache) draw(dst *ebiten.Image, k, x, speed float64) {
+// Where the ute's sprites' origins are (DESIGN D30): its station on the
+// tray's deck in the body and the near drop side, a wheel's middle, and
+// the front wheel's middle in its flare, in field pixels from each
+// sprite's top left.
+const (
+	uteBodyX, uteBodyY   = 17, 36
+	uteSideX, uteSideY   = 17, 7
+	uteWheelMid          = 13
+	uteFlareX, uteFlareY = 18, -6
+	uteWheelFrames       = 4 // a quarter of the way between the wheel's six holes a frame
+)
+
+// uteWheelFrame is the wheel's frame when it has turned roll radians
+// clockwise.
+func uteWheelFrame(roll float64) int {
+	f := int(math.Round(roll / (math.Pi / 3 / uteWheelFrames)))
+	return (f%uteWheelFrames + uteWheelFrames) % uteWheelFrames
+}
+
+// draw lays the ute with its tray's station at x, going speed field pixels
+// a tick: its sprites in the pixel look, or else drawn once at the shown
+// screen's scale, drawing it again if the scale has changed.
+func (c *uteCache) draw(p pen, x, speed float64) {
+	dst, k := p.dst, p.k
+	if p.ute != nil {
+		deck := float64(config.SheetY)
+		p.ute.Sprite("ute_body").Draw(dst, 0, x-uteBodyX, deck-uteBodyY, false)
+		rear, front := art.UteTyres(config.TrayBack, config.Headboard)
+		wheel := uteWheelFrame(art.UteRoll(x))
+		for _, a := range []float64{rear, front} {
+			p.ute.Sprite("ute_wheel").Draw(dst, wheel, x+a-uteWheelMid, deck+art.UteWheel-art.UteWheelR-uteWheelMid, false)
+		}
+		p.ute.Sprite("ute_flare").Draw(dst, 0, x+front-uteFlareX, deck-uteFlareY, false)
+		return
+	}
 	if c.img == nil || c.k != k {
 		c.k = k
 		c.img = ebiten.NewImage(int(math.Ceil(uteWide*k)), int(math.Ceil(uteTall*k)))
@@ -545,6 +578,10 @@ func drawTray(p pen, w *world.World, x float64) {
 		for j := range w.LostJoeys() {
 			p.drawKoalaPose(left+6+float64(j)*8, deck-4, koalaPose{baby: true})
 		}
+	}
+	if p.ute != nil {
+		p.ute.Sprite("ute_side").Draw(p.dst, 0, x-uteSideX, deck-uteSideY, false)
+		return
 	}
 	art.TraySide(art.Pen{Dst: p.dst, K: p.k}.At(x, deck), config.TrayBack, config.Headboard)
 }

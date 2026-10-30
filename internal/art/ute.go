@@ -33,8 +33,8 @@ const UteWheel = 36
 // is, in field pixels.
 const UteFront = 79
 
-// wheelR is the radius of the ute's tyres, in field pixels.
-const wheelR = 12.0
+// UteWheelR is the radius of the ute's tyres, in field pixels.
+const UteWheelR = 12.0
 
 // axles is where the ute's rear and front wheels' middles are across, for
 // a tray running back behind the pen's origin to the headboard, head in
@@ -53,7 +53,7 @@ func UteTyres(back, head float64) (rear, front float64) { return axles(back, hea
 // its station on the tray's deck: under the tray, behind the rear wheel.
 func UteExhaust(back, head float64) (x, y float64) {
 	rear, _ := axles(back, head)
-	return rear - wheelR - 4.6, 11
+	return rear - UteWheelR - 4.6, 11
 }
 
 // Ute draws the ranger ute side on, facing right (DESIGN §2): everything
@@ -95,8 +95,8 @@ func Ute(p Pen, back, head float64) {
 func UteWheels(p Pen, back, head, roll, spin float64) {
 	rear, front := axles(back, head)
 	blur := math.Abs(spin) > blurSpin
-	wheel(p, rear, UteWheel-wheelR, roll, blur)
-	wheel(p, front, UteWheel-wheelR, roll, blur)
+	wheel(p, rear, UteWheel-UteWheelR, roll, blur)
+	wheel(p, front, UteWheel-UteWheelR, roll, blur)
 	flare := []float64{front - 15.4, 20, front - 14.4, 12.8, front - 8.6, 8.4, front + 8.6, 8.4, front + 14.4, 12.8, front + 15.4, 20}
 	p.Stroke(ink, 2.6+2*Line, flare...)
 	p.Stroke(trim, 2.6, flare...)
@@ -104,7 +104,7 @@ func UteWheels(p Pen, back, head, roll, spin float64) {
 
 // UteRoll is how far the ute's wheels have turned, in radians clockwise,
 // when it has driven x field pixels to the right.
-func UteRoll(x float64) float64 { return x / wheelR }
+func UteRoll(x float64) float64 { return x / UteWheelR }
 
 // TraySide draws the ute's tray's near drop side, in front of the koalas
 // in it, with the pen as for Ute: grey panels with a ridge, latches and a
@@ -137,7 +137,7 @@ const blurSpin = 0.12
 // blur, spinning too fast to see but for the valve; the light stays where
 // it is.
 func wheel(p Pen, x, y, roll float64, blur bool) {
-	const r = wheelR
+	const r = UteWheelR
 	p.Circle(x, y, r+Line, ink)
 	p.Circle(x, y, r, tyre)
 	// Tread blocks round the tyre's edge, or a blur of them.
