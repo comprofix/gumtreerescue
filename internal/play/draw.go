@@ -25,6 +25,7 @@ type pen struct {
 	k       float64
 	koalas  *gfx.Sheet // nil in the smooth look
 	rangers *gfx.Sheet // nil in the smooth look
+	tree    *gfx.Sheet // nil in the smooth look
 }
 
 // art is an art pen drawing on p's image, with hard pixels in the pixel
@@ -41,7 +42,7 @@ func koalaY(k *world.Koala) float64 { return config.SheetY - px(k.H) }
 func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 	pn := pen{dst: dst, k: scale(ctx)}
 	if ctx.Preset.Art == config.ArtPixel {
-		pn.koalas, pn.rangers = ctx.Sheet("koala"), ctx.Sheet("ranger")
+		pn.koalas, pn.rangers, pn.tree = ctx.Sheet("koala"), ctx.Sheet("ranger"), ctx.Sheet("tree")
 	}
 	w := p.world
 	p.back.ready(dst, pn.k)
@@ -58,7 +59,7 @@ func (p *Play) Draw(ctx *scene.Context, dst *ebiten.Image) {
 			drawKoala(pn, w, k, tick)
 		}
 	}
-	p.tree.draw(dst, pn.k, w.Row.Drops)
+	p.tree.draw(pn, w.Row.Drops)
 	drawWaiting(pn, w.Tree, tick)
 	ute := px(w.UteX()) + uteShift(w)
 	// Shadows of koalas coming down into the tray fall on the track under
@@ -155,9 +156,33 @@ type treeCache struct {
 	drops []config.Drop
 }
 
-// draw lays the tree with a branch out to each drop point on dst, drawing
-// it first if the scale or the drop points have changed.
-func (c *treeCache) draw(dst *ebiten.Image, k float64, drops []config.Drop) {
+// The pixel tree's sprites (DESIGN D30): the tree, at the field's top left,
+// and the branch out to each drop point, laid over it, with their top
+// lefts in the field.
+var treeBranches = []struct {
+	drop config.Drop
+	name string
+	x, y float64
+}{
+	{config.Hanging, "tree_hanging", 33, 90},
+	{config.Higher, "tree_higher", 35, 40},
+	{config.Lower, "tree_lower", 37, 130},
+}
+
+// draw lays the tree with a branch out to each drop point with p: as
+// sprites in the pixel look, or in shapes drawn first if the scale or the
+// drop points have changed.
+func (c *treeCache) draw(p pen, drops []config.Drop) {
+	if p.tree != nil {
+		p.tree.Sprite("tree").Draw(p.dst, 0, 0, 0, false)
+		for _, b := range treeBranches {
+			if slices.Contains(drops, b.drop) {
+				p.tree.Sprite(b.name).Draw(p.dst, 0, b.x, b.y, false)
+			}
+		}
+		return
+	}
+	dst, k := p.dst, p.k
 	b := dst.Bounds()
 	if c.img == nil || c.k != k || !slices.Equal(c.drops, drops) || c.img.Bounds() != b {
 		if c.img == nil || c.img.Bounds() != b {
