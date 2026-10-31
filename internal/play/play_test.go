@@ -50,7 +50,12 @@ func botKey(w *world.World) []ebiten.Key {
 	if k, ok := next(w); ok {
 		station = k.Target
 	}
-	switch d := world.SafeSheetX(station) - w.Sheet; {
+	return keyTowards(w, world.SafeSheetX(station))
+}
+
+// keyTowards is the arrow key that takes the sheet to x, if it isn't there.
+func keyTowards(w *world.World, x int) []ebiten.Key {
+	switch d := x - w.Sheet; {
 	case d > w.RangerSpeed():
 		return []ebiten.Key{ebiten.KeyArrowRight}
 	case d < -w.RangerSpeed():
@@ -88,6 +93,83 @@ func TestGoldenReplay(t *testing.T) {
 		t.Errorf("the steady player missed: level %d, lives %d, misses %d", w.Level, w.Session.Lives, w.Misses)
 	}
 	scenetest.Golden(t, "replay", summary(p))
+}
+
+// clumsy is a player who makes mistakes on purpose and recovers from them:
+// it bounces the mother and two others back into the tree, once each, lets
+// one koala fall, and otherwise plays as the steady player does.
+type clumsy struct {
+	sent                     map[int]bool // the koalas it has bounced into the tree
+	grabbed, slipped, missed bool
+	joeyLost                 bool
+}
+
+// key is the arrow key the clumsy player holds.
+func (c *clumsy) key(w *world.World) []ebiten.Key {
+	k, ok := next(w)
+	switch {
+	case !ok || k.Target != 0:
+	case !c.sent[k.ID] && (k.Joey || len(c.sent) < 2):
+		// The middle of zone 2 over the first station bounces it into the tree.
+		middle := config.ZoneSharp + config.ZoneSafe/2 - config.SheetWidth/2
+		return keyTowards(w, world.StationX(0)-middle*config.SubPx)
+	case !c.missed && len(c.sent) >= 2:
+		return []ebiten.Key{ebiten.KeyArrowRight}
+	}
+	return botKey(w)
+}
+
+// watch notes what has become of the koalas.
+func (c *clumsy) watch(w *world.World) {
+	for i := range w.Koalas {
+		k := &w.Koalas[i]
+		if k.State == world.Thumped {
+			c.sent[k.ID] = true
+			c.slipped = c.slipped || k.Slipped
+			c.grabbed = c.grabbed || !k.Slipped
+		}
+		c.missed = c.missed || k.Missed
+		c.joeyLost = c.joeyLost || k.Baby
+	}
+}
+
+// slipsSeed is a seed on which the clumsy player sees every kind of mistake.
+const slipsSeed = 1
+
+// playClumsy plays level 5, the first with a joey, with the clumsy player,
+// until the next level starts or the game ends.
+func playClumsy(t *testing.T, seed uint64) (*Play, *clumsy) {
+	t.Helper()
+	h := scenetest.New(t, seed)
+	h.Ctx.NewPlay, h.Ctx.NativePlay, h.Ctx.StartLevel = New, true, 5
+	p := New(h.Ctx, config.Skills[1]).(*Play) // Normal
+	h.Start(p)
+	h.Ticks(scene.FadeTicks)
+	c := &clumsy{sent: map[int]bool{}}
+	w := p.World()
+	for range 10 * config.KoalaLevel * config.LevelAt(5).GapTicks {
+		if w.Level != 5 || w.Over {
+			break
+		}
+		h.Run(input.Step{Keys: c.key(w), Ticks: 1})
+		c.watch(w)
+	}
+	return p, c
+}
+
+// TestGoldenSlipsAndRecoveries plays a level with mistakes in it: koalas
+// bounced into the tree, grabbing on and slipping, a joey lost and a koala
+// missed. The player recovers and finishes the level, and the game ends
+// exactly as recorded (DESIGN §5, §6).
+func TestGoldenSlipsAndRecoveries(t *testing.T) {
+	p, c := playClumsy(t, slipsSeed)
+	if w := p.World(); w.Level != 6 || w.Over {
+		t.Errorf("the level wasn't finished: level %d, lives %d, over %v", w.Level, w.Session.Lives, w.Over)
+	}
+	if !c.grabbed || !c.slipped || !c.joeyLost || !c.missed {
+		t.Errorf("mistakes seen: grabbed %v, slipped %v, joey lost %v, missed %v", c.grabbed, c.slipped, c.joeyLost, c.missed)
+	}
+	scenetest.Golden(t, "slips", summary(p))
 }
 
 // TestDemo runs the title with the demo behind it for two levels' worth of
