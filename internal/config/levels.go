@@ -36,6 +36,7 @@ var Levels = []Level{
 	{BounceTicks: 90, GapTicks: 5 * TPS, UteStation: 4, Drops: []Drop{Hanging, Higher}, Intro: "THE UTE MOVES BACK"},
 	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{Hanging, Higher}, Joeys: 1, Intro: "A JOEY! WORTH DOUBLE"},
 	{BounceTicks: 86, GapTicks: 9 * TPS / 2, UteStation: 4, Drops: []Drop{Hanging, Higher, Lower}, Joeys: 1, Intro: "A LOWER BRANCH!"},
+	{BounceTicks: 84, GapTicks: 5 * TPS, UteStation: 4, Drops: []Drop{Hanging, Higher, Lower}, Joeys: 2, Intro: "TWO JOEYS!"},
 	{BounceTicks: 84, GapTicks: 5 * TPS, UteStation: 5, Drops: []Drop{Hanging, Higher, Lower}, Joeys: 2, Intro: "THE UTE MOVES BACK AGAIN"},
 }
 

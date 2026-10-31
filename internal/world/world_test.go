@@ -434,6 +434,23 @@ func TestUteParking(t *testing.T) {
 	}
 }
 
+// TestOneNewThing checks no level brings more than one new thing of a new
+// branch, the ute moving back or more joeys (DESIGN §1, §5).
+func TestOneNewThing(t *testing.T) {
+	for n := 1; n < len(config.Levels); n++ {
+		was, row := config.Levels[n-1], config.Levels[n]
+		news := 0
+		for _, changed := range []bool{len(row.Drops) != len(was.Drops), row.UteStation != was.UteStation, row.Joeys != was.Joeys} {
+			if changed {
+				news++
+			}
+		}
+		if news > 1 {
+			t.Errorf("level %d brings %d new things", n+1, news)
+		}
+	}
+}
+
 func TestLanding(t *testing.T) {
 	w := newWorld(t)
 	w.Update(Input{})
@@ -516,7 +533,7 @@ func TestDropTicks(t *testing.T) {
 // one branch on levels 1 and 2, a higher one from 3, a lower one from 6,
 // and the drops come from all of them.
 func TestBranches(t *testing.T) {
-	for n, want := range []int{1, 1, 2, 2, 2, 3, 3} {
+	for n, want := range []int{1, 1, 2, 2, 2, 3, 3, 3} {
 		if got := len(config.LevelAt(n + 1).Drops); got != want {
 			t.Errorf("level %d: %d drop points, want %d", n+1, got, want)
 		}
