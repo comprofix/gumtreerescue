@@ -5,6 +5,25 @@ All notable changes to this game are listed here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0](https://github.com/comprofix/gumtreerescue/compare/v1.3.0...v1.4.0) - 2026-10-31
+
+### Added
+
+- A new level 8. Level 7 now brings only the second joey, and level 8 the
+  ute moving back to its furthest spot, so each level adds one new thing.
+  The endless levels start a level later.
+
+### Changed
+
+- The reduced motion option is gone from the options menu. It only stopped
+  a screen shake this game never starts.
+
+### Fixed
+
+- Bouncing a koala back and forth no longer earns points and extra lives
+  without limit. A bounce scores only at a station new to that koala, for
+  the whole level, even after it returns to the tree.
+
 ## [1.3.0](https://github.com/comprofix/gumtreerescue/compare/v1.2.0...v1.3.0) - 2026-10-30
 
 ### Added
