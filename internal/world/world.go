@@ -147,12 +147,13 @@ type World struct {
 	// the tally after its last rescue.
 	Starting, Ending int
 
-	nextDrop int     // ticks until the next koala is due to wobble
-	point    int     // the next koala's drop point, in Row.Drops
-	retry    int     // ticks until a held-back drop tries again
-	waited   int     // how long the due drop has been held back
-	nextLife int     // the score that gives the next extra life
-	tumbled  []Koala // joeys lost this tick, joining Koalas after it
+	nextDrop int                    // ticks until the next koala is due to wobble
+	point    int                    // the next koala's drop point, in Row.Drops
+	retry    int                    // ticks until a held-back drop tries again
+	waited   int                    // how long the due drop has been held back
+	nextLife int                    // the score that gives the next extra life
+	tumbled  []Koala                // joeys lost this tick, joining Koalas after it
+	furthest [config.KoalaLevel]int // by koala ID, the furthest station bounced to this level
 	rng      *rand.Rand
 	events   []Event
 	catches  []catchAt // reused by fair
@@ -183,6 +184,7 @@ func (w *World) startLevel(n int) {
 		}
 	}
 	w.Rescued, w.Misses, w.Gained = 0, 0, 0
+	w.furthest = [config.KoalaLevel]int{}
 	w.Sheet = StationX(w.Row.Drops[0].Station)
 	w.Starting, w.Ending = config.LevelTicks, 0
 	w.nextDrop, w.retry, w.waited = config.FirstDrop, 0, 0
@@ -864,7 +866,12 @@ func (w *World) catch(k *Koala) {
 	k.State, k.Target, k.t = Arcing, to, 0
 	k.x0, k.x1 = StationX(from), StationX(to)
 	k.X, k.H = k.x0, 0
-	w.score(worth(k, bouncePoints(zone, to > w.Row.UteStation)))
+	// Only a station new to this koala scores, so going back and forth
+	// earns nothing (DESIGN §5).
+	if to > max(w.furthest[k.ID], from) {
+		w.furthest[k.ID] = to
+		w.score(worth(k, bouncePoints(zone, to > w.Row.UteStation)))
+	}
 	w.emit(Bounced, zone)
 }
 

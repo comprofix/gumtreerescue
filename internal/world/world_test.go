@@ -169,6 +169,61 @@ func TestSafeRescue(t *testing.T) {
 	}
 }
 
+// TestBackAndForthScoresOnce bounces a koala back and forth before sending
+// it on: only stations new to it score, so it earns what a straight trip
+// does (DESIGN §5).
+func TestBackAndForthScoresOnce(t *testing.T) {
+	w := newWorld(t)
+	w.Row.GapTicks = 1 << 20 // one koala
+	back := 20
+	in := func() Input {
+		for i := range w.Koalas {
+			if k := &w.Koalas[i]; k.State == Falling || k.State == Arcing {
+				z := 4
+				if k.Target == 1 && back > 0 && k.t == w.Row.BounceTicks-1 {
+					back--
+				}
+				if k.Target == 1 && back > 0 {
+					z = 2
+				}
+				return holdFor(StationX(k.Target), z)
+			}
+		}
+		return Input{}
+	}
+	run(t, w, in, 100000, func(es []Event) bool { return has(es, Rescued) })
+	if back != 0 {
+		t.Fatalf("%d trips back left to make", back)
+	}
+	if want := w.Row.UteStation*config.SafePoints + config.RescuePoints; w.Session.Score != want {
+		t.Errorf("score %d, want %d, a straight trip's", w.Session.Score, want)
+	}
+}
+
+// TestFurthestLastsTheLevel: a koala back from the tree scores only past
+// where it had reached, and the next level starts afresh (DESIGN §5).
+func TestFurthestLastsTheLevel(t *testing.T) {
+	w := newWorld(t)
+	w.Row.GapTicks = 1 << 20 // one koala
+	w.furthest[0] = 2
+	in := func() Input {
+		for i := range w.Koalas {
+			if k := &w.Koalas[i]; k.State == Falling || k.State == Arcing {
+				return holdFor(StationX(k.Target), 4)
+			}
+		}
+		return Input{}
+	}
+	run(t, w, in, 1000, func(es []Event) bool { return has(es, Rescued) })
+	if want := config.SafePoints + config.RescuePoints; w.Session.Score != want {
+		t.Errorf("score %d, want %d, one new station and the rescue", w.Session.Score, want)
+	}
+	w.startLevel(2)
+	if w.furthest[0] != 0 {
+		t.Errorf("furthest %d on a new level", w.furthest[0])
+	}
+}
+
 // TestMissCrawlsBack lets a koala fall past the sheet: a life lost, then
 // dazed, crawling and climbing back to a free spot to wait again (DESIGN
 // §5).
