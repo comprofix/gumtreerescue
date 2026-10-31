@@ -230,7 +230,6 @@ func (s *Options) items(ctx *Context) []ui.Item {
 		{Label: "Sound test", Confirm: func() {
 			ctx.Switch(NewSoundTest(func() Scene { return NewOptions(s.back) }))
 		}},
-		{Label: "Reduced motion", Value: ui.OnOff(&set.ReducedMotion), Adjust: toggle(&set.ReducedMotion)},
 		{Label: "Back", Confirm: func() { ctx.Switch(s.back()) }},
 	}...)
 }

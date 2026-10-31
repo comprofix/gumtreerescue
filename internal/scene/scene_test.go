@@ -91,20 +91,21 @@ func TestTitleToOptionsAndBack(t *testing.T) {
 	h.press(ebiten.KeyEnter)
 	opts := current[*Options](t, h)
 
-	// Down to Reduced motion and toggle it. Where the cursor starts depends
-	// on the preset: Scale is disabled when there is only one scale mode.
+	// Down to Effects and toggle it. Where the cursor starts depends on the
+	// preset: Scale is disabled when there is only one scale mode.
 	for range len(opts.menu.Items) {
-		if opts.menu.Items[opts.menu.Cursor].Label == "Reduced motion" {
+		if opts.menu.Items[opts.menu.Cursor].Label == "Effects" {
 			break
 		}
 		h.press(ebiten.KeyArrowDown)
 	}
-	if got := opts.menu.Items[opts.menu.Cursor].Label; got != "Reduced motion" {
+	if got := opts.menu.Items[opts.menu.Cursor].Label; got != "Effects" {
 		t.Fatalf("cursor on %q", got)
 	}
+	was := h.ctx.Settings.SFXOn
 	h.press(ebiten.KeyArrowRight)
-	if !h.ctx.Settings.ReducedMotion || !h.ctx.TakeSettingsChanged() {
-		t.Error("Reduced motion was not turned on and reported")
+	if h.ctx.Settings.SFXOn == was || !h.ctx.TakeSettingsChanged() {
+		t.Error("Effects was not toggled and reported")
 	}
 
 	h.press(ebiten.KeyEscape)
@@ -487,14 +488,15 @@ func TestMenusByMouse(t *testing.T) {
 	h.click(1, menuTop)
 	opts := current[*Options](t, h)
 
-	// The Reduced motion line, clicked, toggles it.
+	// The Effects line, clicked, toggles it.
+	was := h.ctx.Settings.SFXOn
 	for i, it := range opts.menu.Items {
-		if it.Label == "Reduced motion" {
+		if it.Label == "Effects" {
 			h.click(i, menuTop)
 		}
 	}
-	if !h.ctx.Settings.ReducedMotion {
-		t.Error("Reduced motion was not turned on by a click")
+	if h.ctx.Settings.SFXOn == was {
+		t.Error("Effects was not toggled by a click")
 	}
 	h.rightClick() // back
 	current[*MainMenu](t, h)
